@@ -8,7 +8,7 @@ import { command, eventsToCsv, getLastTestResult, getSnapshot, stateExportJson, 
 import type { CameraName } from '../three/createViewer';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { shareTextFile } from '../shareFile';
-import { colors, MIN_TAP } from '../theme';
+import { colors } from '../theme';
 
 const CAMERAS: { id: CameraName; label: string }[] = [
   { id: 'iso', label: 'Perspective' },
@@ -74,7 +74,7 @@ export function StudioScreen() {
     return () => clearTimeout(id);
   }, [highlightTire]);
 
-  const stageHeight = isTablet ? undefined : Math.round(Math.max(300, Math.min(isLandscape ? height * 0.68 : height * 0.5, 560)));
+  const stageStyle = isTablet ? styles.stageTablet : isLandscape ? styles.stageLandscape : styles.stagePhone;
   const chooseCamera = (name: CameraName) => {
     cameraRequest.current = { name, token: cameraRequest.current.token + 1 };
     setCameraLabel(name);
@@ -95,7 +95,7 @@ export function StudioScreen() {
       </View>
 
       <View style={[styles.body, isTablet && styles.bodyTablet]}>
-        <View style={[styles.stage, isTablet ? styles.stageTablet : { height: stageHeight }]}>
+        <View style={[styles.stage, stageStyle]}>
           <View style={styles.viewport}>
             {webglOk ? (
               <VehicleStage simRef={simRef} cameraRequest={cameraRequest} phone={phone} active={mode === '3d'} handlersRef={handlersRef} />
@@ -115,6 +115,11 @@ export function StudioScreen() {
                 <Text style={styles.loadingText}>{loading}</Text>
               </View>
             ) : null}
+            <View style={styles.layerOverlay}>
+              <LayerChip label="Radar" selected={snap.vehicle.overlays.sensors} onPress={() => toggleOverlay('sensors', !snap.vehicle.overlays.sensors)} />
+              <LayerChip label="Path" selected={snap.vehicle.overlays.trajectory} onPress={() => toggleOverlay('trajectory', !snap.vehicle.overlays.trajectory)} />
+              <LayerChip label="Labels" selected={snap.vehicle.overlays.labels} onPress={() => toggleOverlay('labels', !snap.vehicle.overlays.labels)} />
+            </View>
             <View style={styles.instrument} pointerEvents="none">
               <Instrument label="Speed" value={formatSpeed(snap.vehicle.speed)} unit="km/h" />
               <Instrument label="Gear" value={snap.vehicle.gear} />
@@ -157,19 +162,12 @@ export function StudioScreen() {
               <Text style={styles.hint}>Tap a door or a tire</Text>
             )}
           </View>
-
-          <View style={styles.layers}>
-            <LayerChip label="Radar" selected={snap.vehicle.overlays.sensors} onPress={() => toggleOverlay('sensors', !snap.vehicle.overlays.sensors)} />
-            <LayerChip label="Path" selected={snap.vehicle.overlays.trajectory} onPress={() => toggleOverlay('trajectory', !snap.vehicle.overlays.trajectory)} />
-            <LayerChip label="Labels" selected={snap.vehicle.overlays.labels} onPress={() => toggleOverlay('labels', !snap.vehicle.overlays.labels)} />
-            <Text style={styles.adas} numberOfLines={1}>{adasLabel(snap)}</Text>
-          </View>
         </View>
 
         <View style={[styles.controls, isTablet && styles.controlsTablet, { paddingBottom: insets.bottom }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sectionScroll} contentContainerStyle={styles.sectionBar}>
             {SECTIONS.map((item) => (
-              <Pressable key={item.id} style={[styles.sectionChip, section === item.id && styles.sectionChipOn]} onPress={() => setSection(item.id)}>
+              <Pressable key={item.id} hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }} style={[styles.sectionChip, section === item.id && styles.sectionChipOn]} onPress={() => setSection(item.id)}>
                 <Text style={[styles.sectionChipText, section === item.id && styles.sectionChipTextOn]}>{item.label}</Text>
               </Pressable>
             ))}
@@ -178,6 +176,7 @@ export function StudioScreen() {
             section={section}
             snap={snap}
             highlightTire={highlightTire}
+            bottomInset={insets.bottom}
             onExportCsv={() => void shareExport('gaussmoto_vehicle_bus_log.csv', eventsToCsv(), 'text/csv', 'Export CSV')}
             onExportJson={() => void shareExport('gaussmoto_vehicle_state.json', stateExportJson(), 'application/json', 'Export JSON')}
             onExportTest={() => {
@@ -211,13 +210,6 @@ async function shareExport(name: string, content: string, mime: string, title: s
 
 function toggleOverlay(feature: 'sensors' | 'trajectory' | 'labels', on: boolean) {
   command('overlay', { feature, on });
-}
-
-function adasLabel(snap: StudioSnapshot) {
-  const adas = snap.vehicle.adas;
-  if (adas.alert === 'CLEAR') return adas.perception ? 'Monitoring' : 'ADAS off';
-  if (adas.object === 'none') return adas.alert;
-  return `${adas.alert} · ${adas.distance} m`;
 }
 
 function statusValue(snap: StudioSnapshot) {
@@ -263,12 +255,22 @@ const styles = StyleSheet.create({
   liveText: { color: '#248A3D', fontSize: 13, fontWeight: '600' },
   body: { flex: 1 },
   bodyTablet: { flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
-  stage: { marginHorizontal: 12, backgroundColor: colors.card, borderRadius: 28, overflow: 'hidden' },
-  stageTablet: { flex: 1.2, marginHorizontal: 0 },
-  viewport: { flex: 1, minHeight: 220, backgroundColor: '#E9E9EE' },
+  stage: { marginHorizontal: 16, backgroundColor: colors.card, borderRadius: 24, overflow: 'hidden' },
+  stagePhone: { flex: 1.45 },
+  stageLandscape: { flex: 1.15 },
+  stageTablet: { flex: 1.15, marginHorizontal: 0 },
+  viewport: { flex: 1, backgroundColor: '#ECECEF' },
   topLayer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#E9E9EE' },
   loading: { position: 'absolute', top: 0, right: 0, bottom: 72, left: 0, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
+  layerOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
   instrument: {
     position: 'absolute',
     left: 12,
@@ -284,7 +286,7 @@ const styles = StyleSheet.create({
   instrumentValue: { marginTop: 2, fontSize: 17, fontWeight: '600', color: colors.ink, letterSpacing: -0.3 },
   instrumentWarn: { color: colors.warn },
   instrumentUnit: { fontSize: 11, fontWeight: '600', color: colors.muted },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' },
   segment: { flexDirection: 'row', backgroundColor: '#E9E9EE', borderRadius: 12, padding: 3 },
   segmentItem: { minWidth: 52, minHeight: 36, paddingHorizontal: 12, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   segmentOn: { backgroundColor: '#fff' },
@@ -295,17 +297,16 @@ const styles = StyleSheet.create({
   cameraText: { fontSize: 14, fontWeight: '500', color: colors.muted },
   cameraTextOn: { color: colors.blue, fontWeight: '600' },
   hint: { flex: 1, textAlign: 'right', color: colors.muted, fontSize: 13 },
-  layers: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
-  layerChip: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  layerChip: { minHeight: 32, paddingHorizontal: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.92)' },
   layerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D1D6' },
   layerDotOn: { backgroundColor: colors.blue },
   layerText: { fontSize: 13, fontWeight: '500', color: colors.muted },
   layerTextOn: { color: colors.ink, fontWeight: '600' },
-  adas: { marginLeft: 'auto', fontSize: 13, fontWeight: '600', color: colors.muted, flexShrink: 1 },
-  controls: { flex: 1, marginTop: 8 },
-  controlsTablet: { flex: 0.9, marginTop: 0, backgroundColor: colors.bg, borderRadius: 28, overflow: 'hidden' },
-  sectionBar: { gap: 8, paddingHorizontal: 16, paddingBottom: 4, alignItems: 'center' },
-  sectionChip: { minHeight: MIN_TAP, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  controls: { flex: 1, marginTop: 8, backgroundColor: colors.bg },
+  controlsTablet: { flex: 0.95, marginTop: 0, borderRadius: 24, overflow: 'hidden' },
+  sectionScroll: { flexGrow: 0 },
+  sectionBar: { gap: 6, paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center' },
+  sectionChip: { minHeight: 34, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   sectionChipOn: { backgroundColor: colors.ink },
   sectionChipText: { fontSize: 15, fontWeight: '500', color: colors.muted },
   sectionChipTextOn: { color: '#fff', fontWeight: '600' },

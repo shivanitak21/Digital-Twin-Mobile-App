@@ -36,6 +36,7 @@ export function ControlDeck({
   onExportCsv,
   onExportJson,
   onExportTest,
+  bottomInset = 16,
 }: {
   section: SectionId;
   snap: StudioSnapshot;
@@ -43,9 +44,17 @@ export function ControlDeck({
   onExportCsv: () => void;
   onExportJson: () => void;
   onExportTest: () => void;
+  bottomInset?: number;
 }) {
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[styles.content, { paddingBottom: 24 + bottomInset }]}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+      showsVerticalScrollIndicator
+      bounces
+    >
       {section === 'access' ? <Access snap={snap} /> : null}
       {section === 'lighting' ? <Lighting snap={snap} /> : null}
       {section === 'drive' ? <Drive snap={snap} /> : null}
@@ -580,7 +589,7 @@ function Feature({ label, on, onPress }: { label: string; on: boolean; onPress: 
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 36 },
+  content: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 28 },
   row: { flexDirection: 'row', gap: 8 },
   rowSpread: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },

@@ -46,6 +46,7 @@ class MemoryBlob {
 const textures = new Map<string, Uint8Array>();
 let sequence = 0;
 let installed = false;
+let writeQueue = Promise.resolve();
 
 export function installNativeImageShim() {
   if (installed) return;
@@ -69,8 +70,6 @@ export function installNativeImageShim() {
     return `blob:gaussmoto/${id}`;
   };
   urlApi.revokeObjectURL = (url: string) => {
-    const id = url.split('/').pop();
-    if (id) textures.delete(id);
     previousRevoke?.(url);
   };
   scope.document = {
@@ -82,13 +81,22 @@ export function installNativeImageShim() {
 /** GLTFLoader must construct blobs while this replacement is in place. */
 export async function withEmbeddedTextures<T>(work: () => Promise<T>): Promise<T> {
   installNativeImageShim();
-  const host = globalThis as { Blob?: unknown };
-  const previous = host.Blob;
+  const host = globalThis as { Blob?: unknown; createImageBitmap?: unknown };
+  const previousBlob = host.Blob;
+  const previousBitmap = host.createImageBitmap;
   host.Blob = MemoryBlob;
+  // ImageBitmapLoader fetches blob: URLs. Those addresses only exist in our map.
+  try {
+    host.createImageBitmap = undefined;
+  } catch {
+    // Some runtimes lock this function. TextureLoader is selected when it is missing.
+  }
   try {
     return await work();
   } finally {
-    host.Blob = previous;
+    textures.clear();
+    host.Blob = previousBlob;
+    host.createImageBitmap = previousBitmap;
   }
 }
 
@@ -145,7 +153,7 @@ function createImage() {
         listeners.error?.forEach((listener) => listener.call(image, error));
         return;
       }
-      void writeTexture(bytes)
+      void enqueue(() => writeTexture(bytes))
         .then((file) => {
           image.localUri = file.uri;
           image.width = file.width;
@@ -185,13 +193,27 @@ function takeBytes(uri: string) {
   return bytes;
 }
 
+function enqueue<T>(job: () => Promise<T>) {
+  const run = writeQueue.then(job, job);
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+const WRITE_CHUNK = 256 * 1024;
+
 async function writeTexture(bytes: Uint8Array) {
   const file = new File(Paths.cache, `gm-tex-${++sequence}.${sniff(bytes)}`);
   if (file.exists) file.delete();
   file.create();
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  await file.write(copy);
+  for (let offset = 0; offset < bytes.byteLength; offset += WRITE_CHUNK) {
+    const end = Math.min(bytes.byteLength, offset + WRITE_CHUNK);
+    const piece = new Uint8Array(end - offset);
+    piece.set(bytes.subarray(offset, end));
+    await file.write(piece, { append: offset > 0 });
+  }
   const size = await measure(file.uri);
   return { uri: file.uri, width: size.width, height: size.height };
 }

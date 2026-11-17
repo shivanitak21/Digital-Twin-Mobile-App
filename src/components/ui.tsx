@@ -133,8 +133,8 @@ export function Metric({ caption, value, warn = false }: { caption: string; valu
 }
 
 const styles = StyleSheet.create({
-  sectionHead: { marginBottom: 16, gap: 4 },
-  sectionTitle: { fontSize: 22, fontWeight: '700', color: colors.ink, letterSpacing: -0.4 },
+  sectionHead: { marginBottom: 10, gap: 2 },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
   sectionMeta: { fontSize: 13, fontWeight: '500', color: colors.muted },
   toggleHit: { minWidth: MIN_TAP, minHeight: MIN_TAP, alignItems: 'center', justifyContent: 'center' },
   toggle: { width: 51, height: 31, borderRadius: 16, backgroundColor: '#E9E9EB', padding: 2 },
