@@ -1,17 +1,21 @@
 {
   "expo": {
-    "name": "gaussmoto-tmp",
-    "slug": "gaussmoto-tmp",
+    "name": "Gauss Moto Digital Twin",
+    "slug": "gaussmoto-digital-twin",
+    "scheme": "gaussmoto",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gaussmoto.digitaltwin"
     },
     "android": {
+      "package": "com.gaussmoto.digitaltwin",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#f6f8fb",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -20,6 +24,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-asset",
+      "expo-sharing",
+      "expo-font"
+    ]
   }
 }

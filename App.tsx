@@ -1,20 +1,47 @@
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ToastHost } from './src/components/ToastHost';
+import { StudioScreen } from './src/screens/StudioScreen';
+
+export type RootStackParamList = {
+  Studio: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#f6f8fb',
+    card: '#ffffff',
+    text: '#17202c',
+    border: '#e8edf2',
+    primary: '#2266d4',
+    notification: '#ea4c58',
+  },
+};
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <NavigationContainer theme={theme}>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Studio" component={StudioScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+        <ToastHost />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  root: { flex: 1, backgroundColor: '#f6f8fb' },
 });
