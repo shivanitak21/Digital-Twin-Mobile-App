@@ -17,7 +17,7 @@ const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#f6f8fb',
+    background: '#F2F2F7',
     card: '#ffffff',
     text: '#17202c',
     border: '#e8edf2',
@@ -43,5 +43,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f6f8fb' },
+  root: { flex: 1, backgroundColor: '#F2F2F7' },
 });

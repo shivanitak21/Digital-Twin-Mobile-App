@@ -55,6 +55,8 @@ The desktop three-column page is not cloned.
 
 ## 3D
 
+On a phone, Three.js cannot create DOM images, so embedded GLB textures are written to the cache as `file://` images before upload. If that load fails, the stage falls back to Top view and a toast explains why.
+
 The viewer loads `polestar_3_2027.glb` and animates the same anchors: front and rear doors at ±π/3, tailgate at −0.8726646. Cameras are Perspective, Front, Rear, Side, Top, ADAS, and reset, using the web `CAMERA_POSITIONS`. Radar and targets, trajectory, and labels start on. Taps use the same anchor and wheel names. Headlight, taillight, brake, reverse, and turn-signal glow, plus the lead vehicle, pedestrian, cyclist, radar fan, projected path, TPMS rings, window labels, charge halo, security ring, and wiper sweep, follow the web scene.
 
 `three` is pinned at 0.164.1 so `GLTFLoader` matches `viewer3d.js`. `@react-three/fiber` is 9.8.2 and `@react-three/drei` is 10.7.9. Fiber 9 is required on React 19; Fiber 8 crashes at startup because its reconciler still reads `ReactCurrentOwner`. Fiber 9 still accepts Three 0.156 and newer, so the loader stays on 0.164.1. Do not bump `three` unless the loader behavior is checked against the web viewer.

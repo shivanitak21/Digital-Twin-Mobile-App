@@ -30,7 +30,7 @@ export function StudioScreen() {
   const phone = width < 768;
   const [mode, setMode] = useState<'3d' | '2d'>('3d');
   const [webglOk, setWebglOk] = useState(true);
-  const [loading, setLoading] = useState('Initializing 3D viewer…');
+  const [loading, setLoading] = useState('Preparing the model');
   const [ready, setReady] = useState(false);
   const [section, setSection] = useState<SectionId>('access');
   const [cameraLabel, setCameraLabel] = useState<CameraName>('iso');
@@ -60,7 +60,8 @@ export function StudioScreen() {
     setWebglOk(false);
     setReady(true);
     setMode('2d');
-    toast(`${message}. Interactive top view is available.`, 'warning');
+    setLoading(message);
+    toast(`${message}. Top view is still available.`, 'warning');
   };
   handlersRef.current.onReady = () => {
     setReady(true);
@@ -73,7 +74,7 @@ export function StudioScreen() {
     return () => clearTimeout(id);
   }, [highlightTire]);
 
-  const stageHeight = isTablet ? undefined : Math.max(250, Math.min(isLandscape ? height * 0.62 : height * 0.4, 520));
+  const stageHeight = isTablet ? undefined : Math.round(Math.max(300, Math.min(isLandscape ? height * 0.68 : height * 0.5, 560)));
   const chooseCamera = (name: CameraName) => {
     cameraRequest.current = { name, token: cameraRequest.current.token + 1 };
     setCameraLabel(name);
@@ -81,35 +82,26 @@ export function StudioScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: isTablet ? insets.bottom : 0 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>GAUSS MOTO  /  ENGINEERING TOOLS</Text>
-          <Text style={styles.title}>Vehicle digital twin</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>Polestar 3</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>{snap.healthLabel}</Text>
         </View>
-        <View style={styles.simPill}><View style={styles.simDot} /><Text style={styles.simText}>SIMULATION</Text></View>
+        <View style={styles.live}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>Live</Text>
+        </View>
       </View>
+
       <View style={[styles.body, isTablet && styles.bodyTablet]}>
         <View style={[styles.stage, isTablet ? styles.stageTablet : { height: stageHeight }]}>
-          <View style={styles.stageTop}>
-            <View style={styles.identity}>
-              <View style={styles.badge}><Text style={styles.badgeText}>P3</Text></View>
-              <View>
-                <Text style={styles.vehicleName}>Polestar 3</Text>
-                <Text style={styles.vehicleSub}>Integrated vehicle systems simulator</Text>
-              </View>
-            </View>
-            <View style={[styles.health, snap.warnings.length > 0 && styles.healthWarn]}>
-              <View style={[styles.healthDot, snap.warnings.length > 0 && styles.healthDotWarn]} />
-              <Text style={[styles.healthText, snap.warnings.length > 0 && styles.healthTextWarn]} numberOfLines={2}>{snap.healthLabel}</Text>
-            </View>
-          </View>
           <View style={styles.viewport}>
             {webglOk ? (
               <VehicleStage simRef={simRef} cameraRequest={cameraRequest} phone={phone} active={mode === '3d'} handlersRef={handlersRef} />
             ) : null}
             {mode === '2d' || !webglOk ? (
-              <View style={styles.topLayer} pointerEvents="auto">
+              <View style={styles.topLayer}>
                 <TopView
                   snap={snap}
                   onDoor={(door) => handlersRef.current.onDoor(door)}
@@ -121,68 +113,60 @@ export function StudioScreen() {
             {mode === '3d' && !ready ? (
               <View style={styles.loading} pointerEvents="none">
                 <Text style={styles.loadingText}>{loading}</Text>
-                <Text style={styles.loadingSub}>Offline top-view mode remains available</Text>
               </View>
             ) : null}
-            <View style={styles.hud} pointerEvents="none">
-              <View style={styles.hudCol}>
-                <Text style={[styles.hudPill, adasTone(snap)]}>{adasLabel(snap)}</Text>
-                <Text style={styles.hudPill}>{`BATTERY ${Math.round(snap.vehicle.ev.soc)}%`}</Text>
-                <Text style={[styles.hudPill, snap.vehicle.security.blocked > 0 && styles.hudWarn]}>
-                  {snap.vehicle.security.blocked ? `${snap.vehicle.security.blocked} THREATS BLOCKED` : 'SECURITY · PROTECTED'}
-                </Text>
-              </View>
-              <View style={styles.hudColRight}>
-                <Text style={styles.hudPill}>{snap.vehicle.adas.object === 'none' ? 'NO OBJECT' : `${snap.vehicle.adas.object.toUpperCase()} · ${snap.vehicle.adas.distance} m`}</Text>
-                <Text style={styles.hudStrong}>{snap.vehicle.adas.ttc === null ? 'TTC —' : `TTC ${snap.vehicle.adas.ttc.toFixed(1)} s`}</Text>
-              </View>
+            <View style={styles.instrument} pointerEvents="none">
+              <Instrument label="Speed" value={formatSpeed(snap.vehicle.speed)} unit="km/h" />
+              <Instrument label="Gear" value={snap.vehicle.gear} />
+              <Instrument label="Battery" value={`${Math.round(snap.vehicle.ev.soc)}%`} />
+              <Instrument label="Status" value={statusValue(snap)} warn={snap.warnings.length > 0 || snap.vehicle.adas.alert !== 'CLEAR'} />
+            </View>
+          </View>
+
+          <View style={styles.toolbar}>
+            <View style={styles.segment}>
+              <Pressable
+                style={[styles.segmentItem, mode === '3d' && styles.segmentOn]}
+                onPress={() => {
+                  if (!webglOk) {
+                    setLoading('Preparing the model');
+                    setReady(false);
+                    setWebglOk(true);
+                  }
+                  setMode('3d');
+                }}
+              >
+                <Text style={[styles.segmentText, mode === '3d' && styles.segmentTextOn]}>3D</Text>
+              </Pressable>
+              <Pressable style={[styles.segmentItem, mode === '2d' && styles.segmentOn]} onPress={() => setMode('2d')}>
+                <Text style={[styles.segmentText, mode === '2d' && styles.segmentTextOn]}>Top</Text>
+              </Pressable>
             </View>
             {mode === '3d' && webglOk ? (
-              <View style={styles.cameraWrap}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cameraBar}>
-                  {CAMERAS.map((camera) => (
-                    <Pressable key={camera.id} style={[styles.cameraBtn, cameraLabel === camera.id && styles.cameraBtnOn]} onPress={() => chooseCamera(camera.id)}>
-                      <Text style={[styles.cameraText, cameraLabel === camera.id && styles.cameraTextOn]}>{camera.label}</Text>
-                    </Pressable>
-                  ))}
-                  <Pressable style={styles.cameraBtn} onPress={() => chooseCamera('iso')} accessibilityLabel="Reset camera">
-                    <Text style={styles.cameraText}>Reset</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cameraBar}>
+                {CAMERAS.map((camera) => (
+                  <Pressable key={camera.id} hitSlop={6} style={styles.cameraBtn} onPress={() => chooseCamera(camera.id)}>
+                    <Text style={[styles.cameraText, cameraLabel === camera.id && styles.cameraTextOn]}>{camera.label}</Text>
                   </Pressable>
-                </ScrollView>
-              </View>
-            ) : null}
+                ))}
+                <Pressable hitSlop={6} style={styles.cameraBtn} onPress={() => chooseCamera('iso')} accessibilityLabel="Reset camera">
+                  <Text style={styles.cameraText}>Reset</Text>
+                </Pressable>
+              </ScrollView>
+            ) : (
+              <Text style={styles.hint}>Tap a door or a tire</Text>
+            )}
           </View>
+
           <View style={styles.layers}>
-            <LayerChip label="Radar & targets" selected={snap.vehicle.overlays.sensors} onPress={() => toggleOverlay('sensors', !snap.vehicle.overlays.sensors)} />
-            <LayerChip label="Trajectory" selected={snap.vehicle.overlays.trajectory} onPress={() => toggleOverlay('trajectory', !snap.vehicle.overlays.trajectory)} />
+            <LayerChip label="Radar" selected={snap.vehicle.overlays.sensors} onPress={() => toggleOverlay('sensors', !snap.vehicle.overlays.sensors)} />
+            <LayerChip label="Path" selected={snap.vehicle.overlays.trajectory} onPress={() => toggleOverlay('trajectory', !snap.vehicle.overlays.trajectory)} />
             <LayerChip label="Labels" selected={snap.vehicle.overlays.labels} onPress={() => toggleOverlay('labels', !snap.vehicle.overlays.labels)} />
-          </View>
-          <View style={styles.readouts}>
-            <Readout caption="SPEED" value={formatSpeed(snap.vehicle.speed)} unit="km/h" />
-            <Readout caption="GEAR" value={snap.vehicle.gear} />
-            <Readout caption="BODY" value={snap.bodyStatus} warn={snap.bodyStatus === 'DOOR AJAR'} />
-            <Readout caption="WARNINGS" value={String(snap.warnings.length).padStart(2, '0')} warn={snap.warnings.length > 0} />
-          </View>
-          <View style={styles.modeRow}>
-            <Pressable
-              style={[styles.modeBtn, mode === '3d' && styles.modeBtnOn]}
-              onPress={() => {
-                if (!webglOk) {
-                  toast('3D model unavailable. Top view is fully functional.', 'warning');
-                  return;
-                }
-                setMode('3d');
-              }}
-            >
-              <Text style={[styles.modeText, mode === '3d' && styles.modeTextOn]}>3D MODEL</Text>
-            </Pressable>
-            <Pressable style={[styles.modeBtn, mode === '2d' && styles.modeBtnOn]} onPress={() => setMode('2d')}>
-              <Text style={[styles.modeText, mode === '2d' && styles.modeTextOn]}>TOP VIEW</Text>
-            </Pressable>
-            <Text style={styles.hint} numberOfLines={1}>{mode === '3d' ? 'Drag to rotate · Pinch to zoom' : 'Tap doors or tire readings'}</Text>
+            <Text style={styles.adas} numberOfLines={1}>{adasLabel(snap)}</Text>
           </View>
         </View>
-        <View style={[styles.controls, isTablet && styles.controlsTablet, { paddingBottom: isTablet ? 0 : insets.bottom }]}>
+
+        <View style={[styles.controls, isTablet && styles.controlsTablet, { paddingBottom: insets.bottom }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionBar}>
             {SECTIONS.map((item) => (
               <Pressable key={item.id} style={[styles.sectionChip, section === item.id && styles.sectionChipOn]} onPress={() => setSection(item.id)}>
@@ -231,99 +215,98 @@ function toggleOverlay(feature: 'sensors' | 'trajectory' | 'labels', on: boolean
 
 function adasLabel(snap: StudioSnapshot) {
   const adas = snap.vehicle.adas;
-  if (adas.alert === 'CLEAR') return adas.perception ? 'ADAS · MONITORING' : 'ADAS · OFFLINE';
-  return `ADAS · ${adas.alert}`;
+  if (adas.alert === 'CLEAR') return adas.perception ? 'Monitoring' : 'ADAS off';
+  if (adas.object === 'none') return adas.alert;
+  return `${adas.alert} · ${adas.distance} m`;
 }
-function adasTone(snap: StudioSnapshot) {
-  if (snap.vehicle.adas.alert === 'AEB') return styles.hudDanger;
-  if (snap.vehicle.adas.alert === 'FCW' || snap.vehicle.adas.alert === 'LANE') return styles.hudWarn;
-  return styles.hudOk;
+
+function statusValue(snap: StudioSnapshot) {
+  if (snap.vehicle.adas.alert !== 'CLEAR') return snap.vehicle.adas.alert;
+  if (snap.warnings.length > 0) return String(snap.warnings.length);
+  if (snap.bodyStatus === 'DOOR AJAR') return 'Ajar';
+  return 'OK';
 }
+
 function formatSpeed(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function LayerChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Instrument({ label, value, unit, warn = false }: { label: string; value: string; unit?: string; warn?: boolean }) {
   return (
-    <Pressable style={[styles.layerChip, selected && styles.layerChipOn]} onPress={onPress} accessibilityState={{ selected }}>
-      <Text style={[styles.layerText, selected && styles.layerTextOn]}>{label}</Text>
-    </Pressable>
+    <View style={styles.instrumentCell}>
+      <Text style={styles.instrumentLabel}>{label}</Text>
+      <Text style={[styles.instrumentValue, warn && styles.instrumentWarn]} numberOfLines={1}>
+        {value}
+        {unit ? <Text style={styles.instrumentUnit}> {unit}</Text> : null}
+      </Text>
+    </View>
   );
 }
-function Readout({ caption, value, unit, warn = false }: { caption: string; value: string; unit?: string; warn?: boolean }) {
+
+function LayerChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
-    <View style={styles.readout}>
-      <Text style={styles.readoutCaption}>{caption}</Text>
-      <Text style={[styles.readoutValue, warn && styles.readoutWarn]}>{value}{unit ? <Text style={styles.unit}> {unit}</Text> : null}</Text>
-    </View>
+    <Pressable hitSlop={8} style={styles.layerChip} onPress={onPress} accessibilityState={{ selected }}>
+      <View style={[styles.layerDot, selected && styles.layerDotOn]} />
+      <Text style={[styles.layerText, selected && styles.layerTextOn]}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 10 },
-  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, color: '#8d9aa8' },
-  title: { fontSize: 20, fontWeight: '800', color: colors.ink, letterSpacing: -0.4 },
-  simPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#d8eee5', backgroundColor: '#f5fcf9', borderRadius: 8, paddingHorizontal: 10, minHeight: 36 },
-  simDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#20bf8e' },
-  simText: { color: '#249573', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 },
+  headerCopy: { flex: 1 },
+  title: { fontSize: 28, fontWeight: '700', color: colors.ink, letterSpacing: -0.6 },
+  subtitle: { marginTop: 2, fontSize: 14, color: colors.muted, fontWeight: '500' },
+  live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.greenBg, borderRadius: 999, paddingHorizontal: 10, minHeight: 32 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green },
+  liveText: { color: '#248A3D', fontSize: 13, fontWeight: '600' },
   body: { flex: 1 },
-  bodyTablet: { flexDirection: 'row', gap: 12, paddingHorizontal: 12, paddingBottom: 12 },
-  stage: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: 16, overflow: 'hidden', marginHorizontal: 10 },
-  stageTablet: { flex: 1.15, marginHorizontal: 0 },
-  stageTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, paddingTop: 12 },
-  identity: { flexDirection: 'row', gap: 10, alignItems: 'center', flex: 1 },
-  badge: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#151e2c', alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#fff', fontWeight: '800' },
-  vehicleName: { fontSize: 16, fontWeight: '800', color: colors.ink },
-  vehicleSub: { fontSize: 11, color: '#93a0ad' },
-  health: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.greenBg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, maxWidth: '46%' },
-  healthWarn: { backgroundColor: colors.warnBg },
-  healthDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#29b789' },
-  healthDotWarn: { backgroundColor: '#e8a42e' },
-  healthText: { color: '#28a184', fontSize: 10, fontWeight: '800', flexShrink: 1 },
-  healthTextWarn: { color: colors.warn },
-  viewport: { flex: 1, minHeight: 180, backgroundColor: '#f3f6fb', marginTop: 8 },
-  topLayer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#f4f7fb' },
-  loading: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,248,252,0.92)', gap: 6 },
-  loadingText: { color: '#5f6d7b', fontSize: 13, fontWeight: '700' },
-  loadingSub: { color: '#9dabba', fontSize: 11 },
-  hud: { position: 'absolute', top: 8, left: 8, right: 8, flexDirection: 'row', justifyContent: 'space-between' },
-  hudCol: { gap: 4, maxWidth: '58%' },
-  hudColRight: { alignItems: 'flex-end', gap: 4 },
-  hudPill: { backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: 'rgba(220,230,240,0.9)', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden', fontSize: 10, fontWeight: '800', color: '#607587', letterSpacing: 0.4 },
-  hudOk: { color: '#237d7a' },
-  hudDanger: { color: '#db4352', backgroundColor: '#fff3f4' },
-  hudWarn: { color: '#b57b28', backgroundColor: '#fff9e8' },
-  hudStrong: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden', fontSize: 12, fontWeight: '800', color: '#273c54' },
-  cameraWrap: { position: 'absolute', left: 8, right: 8, bottom: 8 },
-  cameraBar: { gap: 4, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 12, padding: 4, alignItems: 'center' },
-  cameraBtn: { minHeight: MIN_TAP, paddingHorizontal: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  cameraBtnOn: { backgroundColor: '#eef4ff' },
-  cameraText: { color: '#8a96a6', fontSize: 12, fontWeight: '700' },
-  cameraTextOn: { color: '#2769cf', fontWeight: '800' },
-  layers: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#eaf0f5' },
-  layerChip: { minHeight: 36, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e3e9f1', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  layerChipOn: { backgroundColor: '#ecf4ff', borderColor: '#c9def7' },
-  layerText: { fontSize: 11, fontWeight: '800', color: '#9aa9b9' },
-  layerTextOn: { color: '#3377c6' },
-  readouts: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#ecf0f4', paddingVertical: 8 },
-  readout: { flex: 1, paddingHorizontal: 8 },
-  readoutCaption: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#a0abb6' },
-  readoutValue: { marginTop: 2, fontSize: 16, fontWeight: '800', color: colors.ink },
-  readoutWarn: { color: '#b27b24' },
-  unit: { fontSize: 11, color: '#9aa8b6', fontWeight: '700' },
-  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingBottom: 10 },
-  modeBtn: { minHeight: 36, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f1f4f8', alignItems: 'center', justifyContent: 'center' },
-  modeBtnOn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e6ebf1' },
-  modeText: { fontSize: 11, fontWeight: '800', color: '#98a5b4', letterSpacing: 0.4 },
-  modeTextOn: { color: '#273544' },
-  hint: { flex: 1, textAlign: 'right', color: '#9ca9b6', fontSize: 11 },
-  controls: { flex: 1, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line },
-  controlsTablet: { flex: 0.9, borderWidth: 1, borderColor: colors.line, borderRadius: 16, overflow: 'hidden', borderTopWidth: 1 },
-  sectionBar: { gap: 8, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center' },
-  sectionChip: { minHeight: MIN_TAP, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#f3f6fa', alignItems: 'center', justifyContent: 'center' },
-  sectionChipOn: { backgroundColor: '#ebf3ff' },
-  sectionChipText: { fontSize: 13, fontWeight: '800', color: '#8d99a8' },
-  sectionChipTextOn: { color: '#216ad8' },
+  bodyTablet: { flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
+  stage: { marginHorizontal: 12, backgroundColor: colors.card, borderRadius: 28, overflow: 'hidden' },
+  stageTablet: { flex: 1.2, marginHorizontal: 0 },
+  viewport: { flex: 1, minHeight: 220, backgroundColor: '#E9E9EE' },
+  topLayer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#E9E9EE' },
+  loading: { position: 'absolute', top: 0, right: 0, bottom: 72, left: 0, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
+  instrument: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 18,
+    paddingVertical: 8,
+  },
+  instrumentCell: { flex: 1, paddingHorizontal: 8 },
+  instrumentLabel: { fontSize: 11, color: colors.muted, fontWeight: '600' },
+  instrumentValue: { marginTop: 2, fontSize: 17, fontWeight: '600', color: colors.ink, letterSpacing: -0.3 },
+  instrumentWarn: { color: colors.warn },
+  instrumentUnit: { fontSize: 11, fontWeight: '600', color: colors.muted },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 10 },
+  segment: { flexDirection: 'row', backgroundColor: '#E9E9EE', borderRadius: 12, padding: 3 },
+  segmentItem: { minWidth: 52, minHeight: 36, paddingHorizontal: 12, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  segmentOn: { backgroundColor: '#fff' },
+  segmentText: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  segmentTextOn: { color: colors.ink },
+  cameraBar: { alignItems: 'center', gap: 2, paddingRight: 8 },
+  cameraBtn: { minHeight: 36, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  cameraText: { fontSize: 14, fontWeight: '500', color: colors.muted },
+  cameraTextOn: { color: colors.blue, fontWeight: '600' },
+  hint: { flex: 1, textAlign: 'right', color: colors.muted, fontSize: 13 },
+  layers: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
+  layerChip: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  layerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D1D6' },
+  layerDotOn: { backgroundColor: colors.blue },
+  layerText: { fontSize: 13, fontWeight: '500', color: colors.muted },
+  layerTextOn: { color: colors.ink, fontWeight: '600' },
+  adas: { marginLeft: 'auto', fontSize: 13, fontWeight: '600', color: colors.muted, flexShrink: 1 },
+  controls: { flex: 1, marginTop: 8 },
+  controlsTablet: { flex: 0.9, marginTop: 0, backgroundColor: colors.bg, borderRadius: 28, overflow: 'hidden' },
+  sectionBar: { gap: 8, paddingHorizontal: 16, paddingBottom: 4, alignItems: 'center' },
+  sectionChip: { minHeight: MIN_TAP, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  sectionChipOn: { backgroundColor: colors.ink },
+  sectionChipText: { fontSize: 15, fontWeight: '500', color: colors.muted },
+  sectionChipTextOn: { color: '#fff', fontWeight: '600' },
 });

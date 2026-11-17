@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
-import { PixelRatio, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as THREE from 'three';
@@ -69,7 +69,8 @@ export const VehicleStage = memo(function VehicleStage({
           gl={{ antialias: !phone, alpha: true, powerPreference: 'high-performance' }}
           camera={{ fov: 39, near: 0.05, far: 120, position: [6.1, 3.9, -7.2] }}
           onCreated={({ gl }) => {
-            gl.setPixelRatio(Math.min(PixelRatio.get(), phone ? 1.25 : 1.6));
+            keepSupportedPixelStore(gl);
+            syncExpoPixelRatio(gl);
             gl.outputColorSpace = THREE.SRGBColorSpace;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 1.52;
@@ -109,6 +110,7 @@ function SceneBridge({
 }) {
   const scene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
   const size = useThree((state) => state.size);
   const sizeRef = useRef(size);
   sizeRef.current = size;
@@ -120,7 +122,7 @@ function SceneBridge({
     let cancelled = false;
     const timeout = setTimeout(() => {
       if (!cancelled && !handleRef.current) handlersRef.current.onFailed('3D model load timed out');
-    }, 45000);
+    }, 90000);
     const perspective = camera as THREE.PerspectiveCamera;
     createVehicleViewer({
       scene,
@@ -159,7 +161,8 @@ function SceneBridge({
 
   useEffect(() => {
     handleRef.current?.resize(size.width, size.height);
-  }, [size.width, size.height]);
+    syncExpoPixelRatio(gl);
+  }, [gl, size.width, size.height]);
 
   useFrame((_, dt) => {
     const handle = handleRef.current;
@@ -176,6 +179,28 @@ function SceneBridge({
     }
   });
   return null;
+}
+
+const UNPACK_ALIGNMENT = 3317;
+const UNPACK_FLIP_Y_WEBGL = 37440;
+
+function syncExpoPixelRatio(gl: THREE.WebGLRenderer) {
+  const context = gl.getContext();
+  const size = new THREE.Vector2();
+  gl.getSize(size);
+  if (size.x <= 0 || context.drawingBufferWidth <= 0) return;
+  const ratio = context.drawingBufferWidth / size.x;
+  if (Math.abs(gl.getPixelRatio() - ratio) > 0.01) gl.setPixelRatio(ratio);
+}
+
+function keepSupportedPixelStore(gl: THREE.WebGLRenderer) {
+  const context = gl.getContext() as WebGLRenderingContext & {
+    pixelStorei: (pname: number, param: number) => void;
+  };
+  const pixelStorei = context.pixelStorei.bind(context);
+  context.pixelStorei = (pname, param) => {
+    if (pname === UNPACK_FLIP_Y_WEBGL || pname === UNPACK_ALIGNMENT) pixelStorei(pname, param);
+  };
 }
 
 const styles = StyleSheet.create({

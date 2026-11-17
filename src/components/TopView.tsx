@@ -1,8 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { criticalPressure, lowPressure } from '../sim/simulator';
-import { colors } from '../theme';
 
 const DOOR_ORIGIN: Record<DoorKey, { x: number; y: number; open: number }> = {
   fl: { x: 83, y: 212, open: 48 },
@@ -36,7 +35,6 @@ export function TopView({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.eyebrow}>LIVE VEHICLE STATE  ·  TOP PROJECTION</Text>
       <Svg viewBox="0 0 360 650" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
         <Defs>
           <LinearGradient id="bodyPaint" x1="0" y1="0" x2="1" y2="1">
@@ -121,7 +119,6 @@ export function TopView({
         <Tire x={4} y={437} label="RL TIRE" id="rl" psi={vehicle.tpms.rl} onPress={onTire} />
         <Tire x={280} y={437} label="RR TIRE" id="rr" psi={vehicle.tpms.rr} onPress={onTire} />
       </Svg>
-      <Text style={styles.help}>Select a tire to edit its pressure · Doors reflect live state</Text>
     </View>
   );
 }
@@ -169,7 +166,5 @@ function Tire({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: '#f4f7fb', paddingTop: 28, paddingBottom: 8 },
-  eyebrow: { position: 'absolute', top: 8, right: 12, fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#8090a3' },
-  help: { textAlign: 'center', color: colors.faint, fontSize: 11, paddingBottom: 4 },
+  wrap: { flex: 1, backgroundColor: '#E9E9EE', paddingBottom: 78 },
 });

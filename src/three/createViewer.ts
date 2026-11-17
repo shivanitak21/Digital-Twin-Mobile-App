@@ -2,6 +2,7 @@ import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { installNativeImageShim, withEmbeddedTextures } from './nativeImage';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import type { PointerSurface } from './pointerSurface';
@@ -193,6 +194,7 @@ export async function createVehicleViewer(options: {
   onTrunk: () => void;
   onTire: (tire: DoorKey) => void;
 }): Promise<ViewerHandle> {
+  installNativeImageShim();
   const { scene, camera, surface, phone } = options;
   scene.background = new THREE.Color(0xf2f5fa);
   const target = new THREE.Vector3(0, 0.85, 0);
@@ -262,22 +264,19 @@ export async function createVehicleViewer(options: {
   options.onProgress(0.35);
   const uri = asset.localUri ?? asset.uri;
   if (!uri) throw new Error('Vehicle model URI is missing');
-  let buffer: ArrayBuffer;
-  try {
-    buffer = await new File(uri).arrayBuffer();
-  } catch {
-    const response = await fetch(uri);
-    buffer = await response.arrayBuffer();
-  }
+  const buffer = await readModelBytes(uri);
   options.onProgress(0.7);
-  const gltf = await new Promise<THREE.Group>((resolve, reject) => {
-    new GLTFLoader().parse(
-      buffer,
-      '',
-      (parsed) => resolve(parsed.scene),
-      (error) => reject(error instanceof Error ? error : new Error('GLB parse failed')),
-    );
-  });
+  const gltf = await withEmbeddedTextures(
+    () =>
+      new Promise<THREE.Group>((resolve, reject) => {
+        new GLTFLoader().parse(
+          buffer,
+          '',
+          (parsed) => resolve(parsed.scene),
+          (error) => reject(error instanceof Error ? error : new Error('GLB parse failed')),
+        );
+      }),
+  );
   const vehicle = gltf;
   scene.add(vehicle);
   vehicle.updateMatrixWorld(true);
@@ -289,6 +288,11 @@ export async function createVehicleViewer(options: {
   if (Math.abs(width - 2.1) > 0.8 || Math.abs(length - 4.88) > 2) {
     console.warn('Loaded model has unexpected dimensions', { width, height, length });
   }
+  camera.position.set(
+    CAMERA_POSITIONS.iso[0] + center.x,
+    CAMERA_POSITIONS.iso[1] + center.y - 0.82,
+    CAMERA_POSITIONS.iso[2] + center.z,
+  );
   controls.target.set(center.x, center.y - 0.04, center.z);
   controls.update();
 
@@ -687,4 +691,26 @@ export async function createVehicleViewer(options: {
       scene.remove(vehicle);
     },
   };
+}
+
+async function readModelBytes(uri: string) {
+  const attempts: Array<() => Promise<ArrayBuffer>> = [
+    async () => new File(uri).arrayBuffer(),
+    async () => {
+      const response = await fetch(uri);
+      if (!response.ok) throw new Error(`Model download failed (${response.status})`);
+      return response.arrayBuffer();
+    },
+  ];
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      const buffer = await attempt();
+      if (buffer.byteLength > 1000) return buffer;
+      lastError = new Error('Vehicle model file was empty');
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Vehicle model could not be read');
 }
