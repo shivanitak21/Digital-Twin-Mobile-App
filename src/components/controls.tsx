@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { command, criticalPressure, DOOR_KEYS, filterEvents, lowPressure, runScenario, SCENARIOS, toast } from '../sim/simulator';
 import type { AttackType, DoorKey, Gear, LogFilter, ScenarioId, StudioSnapshot } from '../sim/types';
-import { colors, MIN_TAP } from '../theme';
+import { MIN_TAP, tone, useTheme, useThemedStyles, type Palette } from '../theme';
 import { Metric, SectionHead, SelectField, SliderField, Toggle } from './ui';
 
 export const SECTIONS = [
@@ -46,6 +46,7 @@ export function ControlDeck({
   onExportTest: () => void;
   bottomInset?: number;
 }) {
+  const styles = useStyles();
   return (
     <ScrollView
       style={styles.scroll}
@@ -71,6 +72,7 @@ export function ControlDeck({
 }
 
 function Access({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
   const v = snap.vehicle;
   return (
     <View>
@@ -137,6 +139,7 @@ function Access({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Lighting({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
   const v = snap.vehicle;
   return (
     <View>
@@ -160,6 +163,8 @@ function Lighting({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Drive({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
+  const colors = useTheme();
   const v = snap.vehicle;
   const gears: Gear[] = ['P', 'R', 'N', 'D'];
   return (
@@ -202,6 +207,7 @@ function Drive({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Tires({ snap, highlight }: { snap: StudioSnapshot; highlight: DoorKey | null }) {
+  const styles = useStyles();
   const names: Record<DoorKey, string> = { fl: 'Front left', fr: 'Front right', rl: 'Rear left', rr: 'Rear right' };
   return (
     <View>
@@ -242,6 +248,7 @@ function Tires({ snap, highlight }: { snap: StudioSnapshot; highlight: DoorKey |
 }
 
 function Adas({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
   const a = snap.vehicle.adas;
   const alert =
     a.alert === 'AEB'
@@ -290,6 +297,7 @@ function Adas({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Motion({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
   const m = snap.vehicle.motion;
   const lane = snap.vehicle.adas.laneOffset;
   return (
@@ -336,6 +344,7 @@ function Motion({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Energy({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
   const ev = snap.vehicle.ev;
   const chargeLabel = ev.charging ? 'CHARGING · 11 kW' : ev.plugged ? 'CONNECTED' : 'DISCONNECTED';
   return (
@@ -373,6 +382,8 @@ function Energy({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Ivi({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
+  const colors = useTheme();
   const info = snap.vehicle.infotainment;
   const [text, setText] = useState('');
   const send = (phrase: string) => {
@@ -404,7 +415,7 @@ function Ivi({ snap }: { snap: StudioSnapshot }) {
           value={text}
           onChangeText={setText}
           placeholder="e.g. Turn on headlights"
-          placeholderTextColor="#9aa6b4"
+          placeholderTextColor={colors.placeholder}
           style={styles.input}
           onSubmitEditing={() => send(text)}
           returnKeyType="send"
@@ -424,6 +435,7 @@ function Ivi({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Cyber({ snap }: { snap: StudioSnapshot }) {
+  const styles = useStyles();
   const sec = snap.vehicle.security;
   const attacks: { id: AttackType; label: string }[] = [
     { id: 'remote', label: 'Invalid remote unlock' },
@@ -462,6 +474,7 @@ function Cyber({ snap }: { snap: StudioSnapshot }) {
 }
 
 function Scenarios({ snap, onExportTest }: { snap: StudioSnapshot; onExportTest: () => void }) {
+  const styles = useStyles();
   const [selected, setSelected] = useState<ScenarioId>('approach');
   const ui = snap.scenario;
   return (
@@ -491,6 +504,7 @@ function Diagnostics({
   onExportCsv: () => void;
   onExportJson: () => void;
 }) {
+  const styles = useStyles();
   const [filter, setFilter] = useState<LogFilter>('all');
   const rows = filterEvents(snap.events, filter);
   return (
@@ -516,7 +530,7 @@ function Diagnostics({
           <View key={`${event.timestamp}-${event.signal}-${index}`} style={styles.logRow}>
             <View style={styles.logTop}>
               <Text style={styles.logTime}>{event.time}</Text>
-              <Text style={[styles.bus, busStyle(event.bus)]}>{event.bus}</Text>
+              <Text style={[styles.bus, busStyle(styles, event.bus)]}>{event.bus}</Text>
               <Text style={styles.logFrame}>{event.frame}</Text>
               <Text style={[styles.status, event.status === 'REJECTED' && styles.statusBad, event.status === 'WARNING' && styles.statusWarn]}>{event.status}</Text>
             </View>
@@ -539,7 +553,7 @@ function shortDoor(key: DoorKey) {
 function formatSpeed(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
-function busStyle(bus: string) {
+function busStyle(styles: ReturnType<typeof createControlStyles>, bus: string) {
   if (bus === 'SYS') return styles.busSys;
   if (bus === 'WARN') return styles.busWarn;
   if (bus === 'SEC') return styles.busSec;
@@ -547,6 +561,7 @@ function busStyle(bus: string) {
 }
 
 function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable style={[styles.choice, selected && styles.choiceOn]} onPress={onPress}>
       <Text style={[styles.choiceText, selected && styles.choiceTextOn]}>{label}</Text>
@@ -554,6 +569,7 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
   );
 }
 function Outline({ label, onPress }: { label: string; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable style={styles.outline} onPress={onPress}>
       <Text style={styles.outlineText}>{label}</Text>
@@ -561,6 +577,7 @@ function Outline({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable style={styles.textBtn} onPress={onPress}>
       <Text style={styles.textBtnLabel}>{label}</Text>
@@ -568,6 +585,7 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 function LightRow({ title, subtitle, on, label, onPress }: { title: string; subtitle: string; on: boolean; label: string; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.switchRow}>
       <View style={{ flex: 1 }}>
@@ -579,6 +597,7 @@ function LightRow({ title, subtitle, on, label, onPress }: { title: string; subt
   );
 }
 function Feature({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.feature}>
       <Text style={styles.featureText}>{label}</Text>
@@ -587,103 +606,109 @@ function Feature({ label, on, onPress }: { label: string; on: boolean; onPress: 
   );
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  return useThemedStyles(createControlStyles);
+}
+
+function createControlStyles(colors: Palette) {
+  return StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 28 },
   row: { flexDirection: 'row', gap: 8 },
   rowSpread: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  choice: { flex: 1, minHeight: MIN_TAP, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  choice: { flex: 1, minHeight: MIN_TAP, borderRadius: 12, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   choiceOn: { backgroundColor: colors.ink },
   choiceText: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  choiceTextOn: { color: '#fff' },
+  choiceTextOn: { color: colors.onInk },
   miniRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, marginBottom: 8 },
   mini: { fontSize: 13, fontWeight: '600', color: colors.muted },
   miniRight: { fontSize: 13, fontWeight: '600', color: colors.faint },
-  door: { width: '48%', flexGrow: 1, minHeight: 76, borderRadius: 16, padding: 14, backgroundColor: '#fff' },
+  door: { width: '48%', flexGrow: 1, minHeight: 76, borderRadius: 16, padding: 14, backgroundColor: colors.card },
   doorOpen: { backgroundColor: colors.pale },
   doorName: { fontSize: 16, fontWeight: '600', color: colors.ink },
   doorState: { marginTop: 4, fontSize: 13, color: colors.muted },
   doorStateOpen: { color: colors.blue, fontWeight: '600' },
-  trunk: { marginTop: 10, minHeight: 64, borderRadius: 16, paddingLeft: 14, paddingRight: 4, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff' },
-  subtle: { marginTop: 10, minHeight: MIN_TAP, borderRadius: 14, backgroundColor: '#fff', paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  trunk: { marginTop: 10, minHeight: 64, borderRadius: 16, paddingLeft: 14, paddingRight: 4, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card },
+  subtle: { marginTop: 10, minHeight: MIN_TAP, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   subtleText: { color: colors.blue, fontWeight: '600', fontSize: 16 },
-  windowBtn: { width: '48%', flexGrow: 1, minHeight: MIN_TAP, borderRadius: 14, backgroundColor: '#fff', paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  windowBtn: { width: '48%', flexGrow: 1, minHeight: MIN_TAP, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   windowLabel: { color: colors.ink, fontWeight: '500', fontSize: 15 },
   windowValue: { color: colors.blue, fontWeight: '600', fontSize: 15 },
   switchRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inlineValue: { fontSize: 11, fontWeight: '800', color: '#9ea9b5', backgroundColor: '#f4f6f9', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4 },
-  inlineOn: { backgroundColor: '#ffebed', color: '#d94d58' },
-  gearRow: { flexDirection: 'row', backgroundColor: '#E5E5EA', borderRadius: 14, padding: 3, gap: 2 },
+  inlineValue: { fontSize: 11, fontWeight: '800', color: tone(colors, '#9ea9b5', '#8E8E93'), backgroundColor: tone(colors, '#f4f6f9', '#2C2C2E'), paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4 },
+  inlineOn: { backgroundColor: tone(colors, '#ffebed', '#3A1518'), color: tone(colors, '#d94d58', '#FF6961') },
+  gearRow: { flexDirection: 'row', backgroundColor: colors.chip, borderRadius: 14, padding: 3, gap: 2 },
   gear: { flex: 1, minHeight: MIN_TAP, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  gearOn: { backgroundColor: '#fff' },
+  gearOn: { backgroundColor: colors.raised },
   gearText: { fontWeight: '600', color: colors.muted, fontSize: 17 },
   gearTextOn: { color: colors.ink },
-  pedal: { marginTop: 8, minHeight: 52, borderRadius: 10, backgroundColor: '#223247', alignItems: 'center', justifyContent: 'center' },
-  pedalOn: { backgroundColor: '#d94755' },
+  pedal: { marginTop: 8, minHeight: 52, borderRadius: 10, backgroundColor: tone(colors, '#223247', '#2C3E50'), alignItems: 'center', justifyContent: 'center' },
+  pedalOn: { backgroundColor: tone(colors, '#d94755', '#FF453A') },
   pedalText: { color: '#fff', fontWeight: '800', letterSpacing: 0.8, fontSize: 13 },
-  pedalSub: { color: '#aab8c9', fontSize: 11, marginTop: 2 },
-  tireCard: { borderWidth: 1, borderColor: '#edf1f4', backgroundColor: '#fafbfd', borderRadius: 10, padding: 10, marginBottom: 8 },
-  tireLow: { borderColor: '#f3d5ba', backgroundColor: '#fff9f2' },
-  tireCritical: { borderColor: '#f0bbc0', backgroundColor: '#fff4f4' },
-  tireHighlight: { borderColor: '#7daeea', borderWidth: 2 },
+  pedalSub: { color: tone(colors, '#aab8c9', '#C7C7CC'), fontSize: 11, marginTop: 2 },
+  tireCard: { borderWidth: 1, borderColor: tone(colors, '#edf1f4', '#3A3A3C'), backgroundColor: tone(colors, '#fafbfd', '#2C2C2E'), borderRadius: 10, padding: 10, marginBottom: 8 },
+  tireLow: { borderColor: tone(colors, '#f3d5ba', '#7A5A22'), backgroundColor: tone(colors, '#fff9f2', '#3A2A10') },
+  tireCritical: { borderColor: tone(colors, '#f0bbc0', '#7A3038'), backgroundColor: tone(colors, '#fff4f4', '#3A1518') },
+  tireHighlight: { borderColor: tone(colors, '#7daeea', '#4C9AFF'), borderWidth: 2 },
   psi: { fontSize: 20, fontWeight: '800', color: colors.ink },
-  psiLow: { color: '#d28a26' },
-  psiCritical: { color: '#d83b50' },
-  warnText: { color: '#d28b4b', fontSize: 12, fontWeight: '700' },
-  domain: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#d9ede8', backgroundColor: '#effaf6', color: '#258e76', fontWeight: '800', letterSpacing: 0.4, fontSize: 12, marginBottom: 10 },
-  domainAeb: { borderColor: '#f4b2b8', backgroundColor: '#fff1f2', color: '#c53444' },
-  domainWarn: { borderColor: '#f2dcb7', backgroundColor: '#fff8e9', color: '#ac7619' },
-  feature: { width: '48%', flexGrow: 1, minHeight: 56, backgroundColor: '#f9fbfd', borderWidth: 1, borderColor: '#e8edf3', borderRadius: 10, paddingLeft: 12, paddingRight: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  featureText: { fontSize: 13, fontWeight: '800', color: '#516378', flex: 1 },
-  meter: { height: 8, backgroundColor: '#eaf0f6', borderRadius: 99, marginTop: 8, overflow: 'hidden' },
-  meterFill: { height: '100%', backgroundColor: '#38b89c' },
-  chargeOn: { backgroundColor: '#e8faf2', borderColor: '#bceada' },
-  chargeText: { color: '#238c72' },
-  caption: { marginTop: 8, fontSize: 11, fontWeight: '700', color: '#7e8c9d', letterSpacing: 0.3 },
-  fieldLabel: { fontSize: 12, color: '#718297', fontWeight: '700', marginTop: 12, marginBottom: 6 },
+  psiLow: { color: tone(colors, '#d28a26', '#FF9F0A') },
+  psiCritical: { color: tone(colors, '#d83b50', '#FF6961') },
+  warnText: { color: tone(colors, '#d28b4b', '#FFB340'), fontSize: 12, fontWeight: '700' },
+  domain: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: tone(colors, '#d9ede8', '#1E5A40'), backgroundColor: tone(colors, '#effaf6', '#0E2A20'), color: tone(colors, '#258e76', '#30D158'), fontWeight: '800', letterSpacing: 0.4, fontSize: 12, marginBottom: 10 },
+  domainAeb: { borderColor: tone(colors, '#f4b2b8', '#7A3038'), backgroundColor: tone(colors, '#fff1f2', '#3A1518'), color: tone(colors, '#c53444', '#FF6961') },
+  domainWarn: { borderColor: tone(colors, '#f2dcb7', '#7A5A22'), backgroundColor: tone(colors, '#fff8e9', '#3A2A10'), color: tone(colors, '#ac7619', '#FFB340') },
+  feature: { width: '48%', flexGrow: 1, minHeight: 56, backgroundColor: tone(colors, '#f9fbfd', '#2C2C2E'), borderWidth: 1, borderColor: tone(colors, '#e8edf3', '#3A3A3C'), borderRadius: 10, paddingLeft: 12, paddingRight: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  featureText: { fontSize: 13, fontWeight: '800', color: tone(colors, '#516378', '#E5E5EA'), flex: 1 },
+  meter: { height: 8, backgroundColor: tone(colors, '#eaf0f6', '#3A3A3C'), borderRadius: 99, marginTop: 8, overflow: 'hidden' },
+  meterFill: { height: '100%', backgroundColor: tone(colors, '#38b89c', '#30D158') },
+  chargeOn: { backgroundColor: tone(colors, '#e8faf2', '#0E2A20'), borderColor: tone(colors, '#bceada', '#1E5A40') },
+  chargeText: { color: tone(colors, '#238c72', '#30D158') },
+  caption: { marginTop: 8, fontSize: 11, fontWeight: '700', color: tone(colors, '#7e8c9d', '#8E8E93'), letterSpacing: 0.3 },
+  fieldLabel: { fontSize: 12, color: tone(colors, '#718297', '#8E8E93'), fontWeight: '700', marginTop: 12, marginBottom: 6 },
   voiceRow: { flexDirection: 'row', gap: 6 },
-  input: { flex: 1, minHeight: MIN_TAP, borderWidth: 1, borderColor: '#e1e8f1', borderRadius: 10, paddingHorizontal: 12, color: '#38536b', backgroundColor: '#fff' },
-  send: { minHeight: MIN_TAP, minWidth: 64, borderRadius: 10, backgroundColor: '#2d6ac6', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  input: { flex: 1, minHeight: MIN_TAP, borderWidth: 1, borderColor: tone(colors, '#e1e8f1', '#3A3A3C'), borderRadius: 10, paddingHorizontal: 12, color: tone(colors, '#38536b', '#FFFFFF'), backgroundColor: colors.card },
+  send: { minHeight: MIN_TAP, minWidth: 64, borderRadius: 10, backgroundColor: tone(colors, '#2d6ac6', '#0A84FF'), alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   sendText: { color: '#fff', fontWeight: '800' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  voiceOut: { marginTop: 10, backgroundColor: '#f4f8fd', color: '#48627d', padding: 12, borderRadius: 10, fontSize: 13 },
-  attack: { width: '48%', flexGrow: 1, minHeight: 52, borderWidth: 1, borderColor: '#e8e3e4', backgroundColor: '#fffafb', borderRadius: 10, padding: 10, justifyContent: 'center' },
+  voiceOut: { marginTop: 10, backgroundColor: tone(colors, '#f4f8fd', '#10243C'), color: tone(colors, '#48627d', '#C5D4E6'), padding: 12, borderRadius: 10, fontSize: 13 },
+  attack: { width: '48%', flexGrow: 1, minHeight: 52, borderWidth: 1, borderColor: tone(colors, '#e8e3e4', '#5A4048'), backgroundColor: tone(colors, '#fffafb', '#2C2226'), borderRadius: 10, padding: 10, justifyContent: 'center' },
   attackWide: { width: '100%' },
-  attackText: { color: '#8b5362', fontWeight: '700', fontSize: 13 },
-  lastEvent: { marginTop: 12, borderWidth: 1, borderColor: '#eaeef3', borderRadius: 10, backgroundColor: '#fafbfd', padding: 12, gap: 4 },
-  note: { marginTop: 12, fontSize: 12, color: '#96a3b1', lineHeight: 18 },
-  run: { flex: 1.4, minHeight: MIN_TAP, borderRadius: 10, backgroundColor: '#276bd2', alignItems: 'center', justifyContent: 'center' },
+  attackText: { color: tone(colors, '#8b5362', '#E7A0B4'), fontWeight: '700', fontSize: 13 },
+  lastEvent: { marginTop: 12, borderWidth: 1, borderColor: tone(colors, '#eaeef3', '#3A3A3C'), borderRadius: 10, backgroundColor: tone(colors, '#fafbfd', '#2C2C2E'), padding: 12, gap: 4 },
+  note: { marginTop: 12, fontSize: 12, color: tone(colors, '#96a3b1', '#8E8E93'), lineHeight: 18 },
+  run: { flex: 1.4, minHeight: MIN_TAP, borderRadius: 10, backgroundColor: tone(colors, '#276bd2', '#0A84FF'), alignItems: 'center', justifyContent: 'center' },
   runDisabled: { opacity: 0.55 },
   runText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  reset: { flex: 1, minHeight: MIN_TAP, borderRadius: 10, borderWidth: 1, borderColor: '#dfe6ef', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  resetText: { color: '#5f7081', fontWeight: '800' },
-  verdict: { marginTop: 10, backgroundColor: '#f4f7fa', color: '#71859b', borderRadius: 10, padding: 12, fontSize: 12, lineHeight: 18 },
-  verdictRun: { backgroundColor: '#eff6ff', color: '#3675bc' },
-  verdictPass: { backgroundColor: '#eaf9f1', color: '#258c72' },
-  verdictFail: { backgroundColor: '#fff1f2', color: '#b24b55' },
+  reset: { flex: 1, minHeight: MIN_TAP, borderRadius: 10, borderWidth: 1, borderColor: tone(colors, '#dfe6ef', '#3A3A3C'), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  resetText: { color: tone(colors, '#5f7081', '#C7C7CC'), fontWeight: '800' },
+  verdict: { marginTop: 10, backgroundColor: tone(colors, '#f4f7fa', '#2C2C2E'), color: tone(colors, '#71859b', '#A1A1A6'), borderRadius: 10, padding: 12, fontSize: 12, lineHeight: 18 },
+  verdictRun: { backgroundColor: tone(colors, '#eff6ff', '#10243C'), color: tone(colors, '#3675bc', '#7EB0E8') },
+  verdictPass: { backgroundColor: tone(colors, '#eaf9f1', '#0E2A20'), color: tone(colors, '#258c72', '#30D158') },
+  verdictFail: { backgroundColor: tone(colors, '#fff1f2', '#3A1518'), color: tone(colors, '#b24b55', '#FF6961') },
   chips: { gap: 8, paddingVertical: 8 },
-  chip: { minHeight: 36, paddingHorizontal: 12, borderRadius: 9, borderWidth: 1, borderColor: '#e3e9f1', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  chipOn: { backgroundColor: '#ecf4ff', borderColor: '#c9def7' },
-  chipText: { fontSize: 12, fontWeight: '800', color: '#9aa9b9' },
-  chipTextOn: { color: '#3377c6' },
-  outline: { flexGrow: 1, minHeight: MIN_TAP, borderRadius: 10, borderWidth: 1, borderColor: '#e4ebf3', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  outlineText: { color: '#688096', fontWeight: '700', fontSize: 12, textAlign: 'center' },
+  chip: { minHeight: 36, paddingHorizontal: 12, borderRadius: 9, borderWidth: 1, borderColor: tone(colors, '#e3e9f1', '#3A3A3C'), backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  chipOn: { backgroundColor: tone(colors, '#ecf4ff', '#0A2F5C'), borderColor: tone(colors, '#c9def7', '#1F4E86') },
+  chipText: { fontSize: 12, fontWeight: '800', color: tone(colors, '#9aa9b9', '#8E8E93') },
+  chipTextOn: { color: tone(colors, '#3377c6', '#64B5FF') },
+  outline: { flexGrow: 1, minHeight: MIN_TAP, borderRadius: 10, borderWidth: 1, borderColor: tone(colors, '#e4ebf3', '#3A3A3C'), backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  outlineText: { color: tone(colors, '#688096', '#C7C7CC'), fontWeight: '700', fontSize: 12, textAlign: 'center' },
   textBtn: { minHeight: MIN_TAP, justifyContent: 'center' },
-  textBtnLabel: { color: '#4777af', fontWeight: '800', fontSize: 13 },
-  empty: { padding: 20, textAlign: 'center', color: '#abb5c2' },
-  logRow: { borderTopWidth: 1, borderTopColor: '#f0f2f6', paddingVertical: 10 },
+  textBtnLabel: { color: tone(colors, '#4777af', '#64B5FF'), fontWeight: '800', fontSize: 13 },
+  empty: { padding: 20, textAlign: 'center', color: tone(colors, '#abb5c2', '#636366') },
+  logRow: { borderTopWidth: 1, borderTopColor: tone(colors, '#f0f2f6', '#2C2C2E'), paddingVertical: 10 },
   logTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  logTime: { fontVariant: ['tabular-nums'], color: '#77869a', fontSize: 11 },
-  logFrame: { color: '#77869a', fontSize: 11, fontVariant: ['tabular-nums'] },
-  logSignal: { marginTop: 4, color: '#35485d', fontWeight: '700', fontSize: 13 },
-  logValue: { color: '#52667c', fontWeight: '700', fontSize: 12, marginTop: 2 },
+  logTime: { fontVariant: ['tabular-nums'], color: tone(colors, '#77869a', '#8E8E93'), fontSize: 11 },
+  logFrame: { color: tone(colors, '#77869a', '#8E8E93'), fontSize: 11, fontVariant: ['tabular-nums'] },
+  logSignal: { marginTop: 4, color: tone(colors, '#35485d', '#F2F2F7'), fontWeight: '700', fontSize: 13 },
+  logValue: { color: tone(colors, '#52667c', '#C7C7CC'), fontWeight: '700', fontSize: 12, marginTop: 2 },
   bus: { fontSize: 10, fontWeight: '800', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, overflow: 'hidden' },
-  busCan: { backgroundColor: '#eef4fc', color: '#5c82b2' },
-  busSys: { backgroundColor: '#f0f2f5', color: '#8795a5' },
-  busWarn: { backgroundColor: '#fff1e5', color: '#c28c41' },
-  busSec: { backgroundColor: '#f8eef4', color: '#ac5d88' },
-  status: { marginLeft: 'auto', fontSize: 10, fontWeight: '800', backgroundColor: '#eff9f4', color: '#32a27c', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, overflow: 'hidden' },
-  statusBad: { backgroundColor: '#fff1f0', color: '#d75961' },
-  statusWarn: { backgroundColor: '#fff6e7', color: '#ce9446' },
-});
+  busCan: { backgroundColor: tone(colors, '#eef4fc', '#1A2C44'), color: tone(colors, '#5c82b2', '#8EB4E0') },
+  busSys: { backgroundColor: tone(colors, '#f0f2f5', '#2C2C2E'), color: tone(colors, '#8795a5', '#A1A1A6') },
+  busWarn: { backgroundColor: tone(colors, '#fff1e5', '#3A2A14'), color: tone(colors, '#c28c41', '#E6B15C') },
+  busSec: { backgroundColor: tone(colors, '#f8eef4', '#3A2434'), color: tone(colors, '#ac5d88', '#E0A0C4') },
+  status: { marginLeft: 'auto', fontSize: 10, fontWeight: '800', backgroundColor: tone(colors, '#eff9f4', '#0E2A20'), color: tone(colors, '#32a27c', '#30D158'), paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, overflow: 'hidden' },
+  statusBad: { backgroundColor: tone(colors, '#fff1f0', '#3A1518'), color: tone(colors, '#d75961', '#FF6961') },
+  statusWarn: { backgroundColor: tone(colors, '#fff6e7', '#3A2A10'), color: tone(colors, '#ce9446', '#FFB340') },
+  });
+}

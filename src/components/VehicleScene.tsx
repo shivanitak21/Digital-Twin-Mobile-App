@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
+import { useTheme } from '../theme';
 import { StyleSheet, View } from 'react-native';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -29,6 +30,9 @@ export const VehicleStage = memo(function VehicleStage({
   active: boolean;
   handlersRef: MutableRefObject<Handlers>;
 }) {
+  const colors = useTheme();
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
   const surface = useMemo(() => createPointerSurface(), []);
   const viewerRef = useRef<ViewerHandle | null>(null);
   const gesture = useMemo(() => {
@@ -76,7 +80,7 @@ export const VehicleStage = memo(function VehicleStage({
             gl.toneMappingExposure = 1.52;
             gl.shadowMap.enabled = !phone;
             gl.shadowMap.type = THREE.PCFSoftShadowMap;
-            gl.setClearColor(0xf2f5fa, 1);
+            gl.setClearColor(colorsRef.current.canvas, 1);
           }}
         >
           <SceneBridge
@@ -117,6 +121,14 @@ function SceneBridge({
   const seenToken = useRef(0);
   const handleRef = useRef<ViewerHandle | null>(null);
   const failedRef = useRef(false);
+  const colors = useTheme();
+  const modeRef = useRef(colors.mode);
+  modeRef.current = colors.mode;
+
+  useEffect(() => {
+    gl.setClearColor(colors.canvas, 1);
+    handleRef.current?.setAppearance(colors.mode);
+  }, [colors.canvas, colors.mode, gl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +153,7 @@ function SceneBridge({
         }
         handleRef.current = handle;
         viewerRef.current = handle;
+        handle.setAppearance(modeRef.current);
         handle.resize(sizeRef.current.width, sizeRef.current.height);
         clearTimeout(timeout);
         handlersRef.current.onReady();
@@ -172,6 +185,7 @@ function SceneBridge({
         seenToken.current = cameraRequest.current.token;
         handle.setCamera(cameraRequest.current.name);
       }
+      handle.setAppearance(modeRef.current);
       handle.frame(Math.min(dt, 0.1), simRef.current);
     } catch (error) {
       failedRef.current = true;

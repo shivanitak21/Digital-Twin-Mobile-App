@@ -179,6 +179,7 @@ function setLabel(label: THREE.Sprite, text: string) {
 export interface ViewerHandle {
   frame: (dt: number, snap: StudioSnapshot) => void;
   setCamera: (name: CameraName) => void;
+  setAppearance: (mode: 'light' | 'dark') => void;
   resize: (width: number, height: number) => void;
   tap: (x: number, y: number) => void;
   dispose: () => void;
@@ -197,6 +198,7 @@ export async function createVehicleViewer(options: {
   installNativeImageShim();
   const { scene, camera, surface, phone } = options;
   scene.background = new THREE.Color(0xf2f5fa);
+  let appearance: 'light' | 'dark' = 'light';
   const target = new THREE.Vector3(0, 0.85, 0);
   camera.position.set(...CAMERA_POSITIONS.iso);
   const controls = new OrbitControls(camera, surface.element as unknown as HTMLElement);
@@ -588,10 +590,7 @@ export async function createVehicleViewer(options: {
     lastPathKey = pathKey;
     roadGroup.visible = sceneEnabled || showPath;
     lanePaint.color.setHex(s.motion.road === 'ice' ? 0xa7cce4 : s.motion.road === 'wet' ? 0xabc6df : 0x75adcb);
-    const floorMaterial = floor.material as THREE.MeshStandardMaterial;
-    if (s.motion.road === 'wet') floorMaterial.color.setHex(0xe0e8f0);
-    else if (s.motion.road === 'ice') floorMaterial.color.setHex(0xe1f3f9);
-    else floorMaterial.color.setHex(0xf3f6fa);
+    paintStudio(s.motion.road);
     if (dt > 0 && Number(s.speed) > 0) roadRun += Number(s.speed) * dt * 0.035;
     for (let i = 0; i < laneDashes.length; i += 1) {
       let z = (-12 + (i % 11) * 2.4 + roadRun) % 26.4;
@@ -633,6 +632,20 @@ export async function createVehicleViewer(options: {
     }
   }
 
+  function paintStudio(road: string) {
+    const darkMode = appearance === 'dark';
+    (scene.background as THREE.Color).setHex(darkMode ? 0x1c1c1e : 0xf2f5fa);
+    const floorMaterial = floor.material as THREE.MeshStandardMaterial;
+    const dry = darkMode ? 0x2c2c2e : 0xf3f6fa;
+    const wet = darkMode ? 0x243038 : 0xe0e8f0;
+    const ice = darkMode ? 0x2a3844 : 0xe1f3f9;
+    floorMaterial.color.setHex(road === 'wet' ? wet : road === 'ice' ? ice : dry);
+    gridMaterials.forEach((material, index) => {
+      const line = material as THREE.LineBasicMaterial;
+      line.color?.setHex(index === 0 ? (darkMode ? 0x5a5a5e : 0xd9e3ed) : (darkMode ? 0x3a3a3c : 0xe2eaf2));
+    });
+  }
+
   options.onProgress(1);
   return {
     frame(dt, snap) {
@@ -648,6 +661,9 @@ export async function createVehicleViewer(options: {
         if (camera.position.distanceToSquared(cameraGoal) < 0.0004) cameraGoal = null;
       }
       controls.update();
+    },
+    setAppearance(mode) {
+      appearance = mode;
     },
     setCamera(name) {
       const preset = CAMERA_POSITIONS[name];

@@ -8,7 +8,7 @@ import { command, eventsToCsv, getLastTestResult, getSnapshot, stateExportJson, 
 import type { CameraName } from '../three/createViewer';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { shareTextFile } from '../shareFile';
-import { colors } from '../theme';
+import { useThemePreference, useThemedStyles, type Palette } from '../theme';
 
 const CAMERAS: { id: CameraName; label: string }[] = [
   { id: 'iso', label: 'Perspective' },
@@ -20,6 +20,9 @@ const CAMERAS: { id: CameraName; label: string }[] = [
 ];
 
 export function StudioScreen() {
+  const styles = useStyles();
+  const { preference, cyclePreference } = useThemePreference();
+  const appearanceLabel = preference === 'system' ? 'Auto' : preference === 'dark' ? 'Dark' : 'Light';
   const snap = useStudio();
   const simRef = useRef(snap);
   simRef.current = snap;
@@ -88,6 +91,15 @@ export function StudioScreen() {
           <Text style={styles.title}>Polestar 3</Text>
           <Text style={styles.subtitle} numberOfLines={1}>{snap.healthLabel}</Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Appearance, ${appearanceLabel}`}
+          hitSlop={8}
+          onPress={cyclePreference}
+          style={styles.themeBtn}
+        >
+          <Text style={styles.themeText}>{appearanceLabel}</Text>
+        </Pressable>
         <View style={styles.live}>
           <View style={styles.liveDot} />
           <Text style={styles.liveText}>Live</Text>
@@ -224,6 +236,7 @@ function formatSpeed(value: number) {
 }
 
 function Instrument({ label, value, unit, warn = false }: { label: string; value: string; unit?: string; warn?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.instrumentCell}>
       <Text style={styles.instrumentLabel}>{label}</Text>
@@ -236,6 +249,7 @@ function Instrument({ label, value, unit, warn = false }: { label: string; value
 }
 
 function LayerChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable hitSlop={8} style={styles.layerChip} onPress={onPress} accessibilityState={{ selected }}>
       <View style={[styles.layerDot, selected && styles.layerDotOn]} />
@@ -244,23 +258,30 @@ function LayerChip({ label, selected, onPress }: { label: string; selected: bool
   );
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  return useThemedStyles(createStyles);
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 },
   headerCopy: { flex: 1 },
   title: { fontSize: 28, fontWeight: '700', color: colors.ink, letterSpacing: -0.6 },
   subtitle: { marginTop: 2, fontSize: 14, color: colors.muted, fontWeight: '500' },
+  themeBtn: { minHeight: 32, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  themeText: { fontSize: 13, fontWeight: '600', color: colors.ink },
   live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.greenBg, borderRadius: 999, paddingHorizontal: 10, minHeight: 32 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green },
-  liveText: { color: '#248A3D', fontSize: 13, fontWeight: '600' },
+  liveText: { color: colors.greenText, fontSize: 13, fontWeight: '600' },
   body: { flex: 1 },
   bodyTablet: { flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
   stage: { marginHorizontal: 16, backgroundColor: colors.card, borderRadius: 24, overflow: 'hidden' },
   stagePhone: { flex: 1.45 },
   stageLandscape: { flex: 1.15 },
   stageTablet: { flex: 1.15, marginHorizontal: 0 },
-  viewport: { flex: 1, backgroundColor: '#ECECEF' },
-  topLayer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#E9E9EE' },
+  viewport: { flex: 1, backgroundColor: colors.stage },
+  topLayer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.fill },
   loading: { position: 'absolute', top: 0, right: 0, bottom: 72, left: 0, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
   layerOverlay: {
@@ -277,7 +298,7 @@ const styles = StyleSheet.create({
     right: 12,
     bottom: 12,
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.94)',
+    backgroundColor: colors.overlay,
     borderRadius: 18,
     paddingVertical: 8,
   },
@@ -286,10 +307,10 @@ const styles = StyleSheet.create({
   instrumentValue: { marginTop: 2, fontSize: 17, fontWeight: '600', color: colors.ink, letterSpacing: -0.3 },
   instrumentWarn: { color: colors.warn },
   instrumentUnit: { fontSize: 11, fontWeight: '600', color: colors.muted },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' },
-  segment: { flexDirection: 'row', backgroundColor: '#E9E9EE', borderRadius: 12, padding: 3 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  segment: { flexDirection: 'row', backgroundColor: colors.fill, borderRadius: 12, padding: 3 },
   segmentItem: { minWidth: 52, minHeight: 36, paddingHorizontal: 12, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  segmentOn: { backgroundColor: '#fff' },
+  segmentOn: { backgroundColor: colors.raised },
   segmentText: { fontSize: 14, fontWeight: '600', color: colors.muted },
   segmentTextOn: { color: colors.ink },
   cameraBar: { alignItems: 'center', gap: 2, paddingRight: 8 },
@@ -297,8 +318,8 @@ const styles = StyleSheet.create({
   cameraText: { fontSize: 14, fontWeight: '500', color: colors.muted },
   cameraTextOn: { color: colors.blue, fontWeight: '600' },
   hint: { flex: 1, textAlign: 'right', color: colors.muted, fontSize: 13 },
-  layerChip: { minHeight: 32, paddingHorizontal: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.92)' },
-  layerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D1D6' },
+  layerChip: { minHeight: 32, paddingHorizontal: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.overlayChip },
+  layerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.dot },
   layerDotOn: { backgroundColor: colors.blue },
   layerText: { fontSize: 13, fontWeight: '500', color: colors.muted },
   layerTextOn: { color: colors.ink, fontWeight: '600' },
@@ -309,5 +330,6 @@ const styles = StyleSheet.create({
   sectionChip: { minHeight: 34, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   sectionChipOn: { backgroundColor: colors.ink },
   sectionChipText: { fontSize: 15, fontWeight: '500', color: colors.muted },
-  sectionChipTextOn: { color: '#fff', fontWeight: '600' },
-});
+  sectionChipTextOn: { color: colors.onInk, fontWeight: '600' },
+  });
+}

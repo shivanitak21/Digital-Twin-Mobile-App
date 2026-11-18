@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { criticalPressure, lowPressure } from '../sim/simulator';
+import { useTheme } from '../theme';
 
 const DOOR_ORIGIN: Record<DoorKey, { x: number; y: number; open: number }> = {
   fl: { x: 83, y: 212, open: 48 },
@@ -21,6 +22,7 @@ export function TopView({
   onTrunk: () => void;
   onTire: (tire: DoorKey) => void;
 }) {
+  const colors = useTheme();
   const { vehicle, lights, blink } = snap;
   const steering = vehicle.motion.steering;
   const showFan = vehicle.overlays.sensors && vehicle.adas.perception;
@@ -34,7 +36,7 @@ export function TopView({
   const rightOn = blink && lights.right;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: colors.fill }]}>
       <Svg viewBox="0 0 360 650" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
         <Defs>
           <LinearGradient id="bodyPaint" x1="0" y1="0" x2="1" y2="1">
@@ -147,15 +149,17 @@ function Tire({
   psi: number;
   onPress: (id: DoorKey) => void;
 }) {
+  const colors = useTheme();
   const critical = criticalPressure(psi);
   const low = lowPressure(psi);
-  const fill = critical ? '#fff0f1' : low ? '#fff5e6' : '#ffffff';
-  const stroke = critical ? '#e6acb3' : low ? '#eac28a' : '#dfe6ef';
-  const value = critical ? '#d44258' : low ? '#ca8d3c' : '#344c65';
+  const fill = critical ? (colors.mode === 'dark' ? '#3A1518' : '#fff0f1') : low ? (colors.mode === 'dark' ? '#3A2A10' : '#fff5e6') : colors.card;
+  const stroke = critical ? (colors.mode === 'dark' ? '#7A3038' : '#e6acb3') : low ? (colors.mode === 'dark' ? '#7A5A22' : '#eac28a') : (colors.mode === 'dark' ? '#3A3A3C' : '#dfe6ef');
+  const value = critical ? (colors.mode === 'dark' ? '#FF6961' : '#d44258') : low ? (colors.mode === 'dark' ? '#FF9F0A' : '#ca8d3c') : (colors.mode === 'dark' ? '#F2F2F7' : '#344c65');
+  const caption = colors.mode === 'dark' ? '#8E8E93' : '#8c9cae';
   return (
     <G onPress={() => onPress(id)}>
       <Rect x={x} y={y} width={76} height={41} rx={12} fill={fill} stroke={stroke} strokeWidth={1.5} />
-      <SvgText x={x + 38} y={y + 16} textAnchor="middle" fill="#8c9cae" fontSize={10} fontWeight="800">
+      <SvgText x={x + 38} y={y + 16} textAnchor="middle" fill={caption} fontSize={10} fontWeight="800">
         {label}
       </SvgText>
       <SvgText x={x + 38} y={y + 33} textAnchor="middle" fill={value} fontSize={12} fontWeight="800">
@@ -166,5 +170,5 @@ function Tire({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: '#E9E9EE', paddingBottom: 78 },
+  wrap: { flex: 1, paddingBottom: 78 },
 });
