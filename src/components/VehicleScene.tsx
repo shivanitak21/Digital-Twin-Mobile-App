@@ -6,6 +6,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as THREE from 'three';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { createVehicleViewer, type CameraName, type ViewerHandle } from '../three/createViewer';
+import type { PaintId } from '../three/paints';
 import { createPointerSurface } from '../three/pointerSurface';
 
 interface Handlers {
@@ -20,12 +21,14 @@ interface Handlers {
 export const VehicleStage = memo(function VehicleStage({
   simRef,
   cameraRequest,
+  paintRequest,
   phone,
   active,
   handlersRef,
 }: {
   simRef: MutableRefObject<StudioSnapshot>;
   cameraRequest: MutableRefObject<{ name: CameraName; token: number }>;
+  paintRequest: MutableRefObject<{ id: PaintId; token: number }>;
   phone: boolean;
   active: boolean;
   handlersRef: MutableRefObject<Handlers>;
@@ -35,6 +38,7 @@ export const VehicleStage = memo(function VehicleStage({
   colorsRef.current = colors;
   const surface = useMemo(() => createPointerSurface(), []);
   const viewerRef = useRef<ViewerHandle | null>(null);
+  const pinchScale = useRef(1);
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
       .maxPointers(1)
@@ -47,21 +51,16 @@ export const VehicleStage = memo(function VehicleStage({
       });
     const pinch = Gesture.Pinch()
       .runOnJS(true)
-      .onBegin((event) => {
-        surface.pointer('pointerdown', 11, event.focalX - 40, event.focalY);
-        surface.pointer('pointerdown', 12, event.focalX + 40, event.focalY);
+      .onBegin(() => {
+        pinchScale.current = 1;
       })
       .onUpdate((event) => {
-        const span = 40 * event.scale;
-        surface.pointer('pointermove', 11, event.focalX - span, event.focalY);
-        surface.pointer('pointermove', 12, event.focalX + span, event.focalY);
-      })
-      .onFinalize((event) => {
-        const span = 40 * event.scale;
-        surface.pointer('pointerup', 12, event.focalX + span, event.focalY);
-        surface.pointer('pointerup', 11, event.focalX - span, event.focalY);
+        const next = event.scale;
+        const previous = pinchScale.current;
+        pinchScale.current = next;
+        if (previous > 0 && next > 0) viewerRef.current?.zoomBy(previous / next);
       });
-    return Gesture.Exclusive(pinch, pan);
+    return Gesture.Simultaneous(pan, pinch);
   }, [surface]);
 
   return (
@@ -87,6 +86,7 @@ export const VehicleStage = memo(function VehicleStage({
             surface={surface}
             simRef={simRef}
             cameraRequest={cameraRequest}
+            paintRequest={paintRequest}
             viewerRef={viewerRef}
             phone={phone}
             handlersRef={handlersRef}
@@ -101,6 +101,7 @@ function SceneBridge({
   surface,
   simRef,
   cameraRequest,
+  paintRequest,
   viewerRef,
   phone,
   handlersRef,
@@ -108,6 +109,7 @@ function SceneBridge({
   surface: ReturnType<typeof createPointerSurface>;
   simRef: MutableRefObject<StudioSnapshot>;
   cameraRequest: MutableRefObject<{ name: CameraName; token: number }>;
+  paintRequest: MutableRefObject<{ id: PaintId; token: number }>;
   viewerRef: MutableRefObject<ViewerHandle | null>;
   phone: boolean;
   handlersRef: MutableRefObject<Handlers>;
@@ -119,6 +121,7 @@ function SceneBridge({
   const sizeRef = useRef(size);
   sizeRef.current = size;
   const seenToken = useRef(0);
+  const seenPaint = useRef(0);
   const handleRef = useRef<ViewerHandle | null>(null);
   const failedRef = useRef(false);
   const colors = useTheme();
@@ -184,6 +187,10 @@ function SceneBridge({
       if (seenToken.current !== cameraRequest.current.token) {
         seenToken.current = cameraRequest.current.token;
         handle.setCamera(cameraRequest.current.name);
+      }
+      if (seenPaint.current !== paintRequest.current.token) {
+        seenPaint.current = paintRequest.current.token;
+        handle.setPaint(paintRequest.current.id);
       }
       handle.setAppearance(modeRef.current);
       handle.frame(Math.min(dt, 0.1), simRef.current);

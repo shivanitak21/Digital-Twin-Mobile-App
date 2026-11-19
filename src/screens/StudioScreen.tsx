@@ -6,6 +6,7 @@ import { TopView } from '../components/TopView';
 import { VehicleStage } from '../components/VehicleScene';
 import { command, eventsToCsv, getLastTestResult, getSnapshot, stateExportJson, subscribe, toast } from '../sim/simulator';
 import type { CameraName } from '../three/createViewer';
+import { DEFAULT_PAINT, PAINTS, type PaintId } from '../three/paints';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { shareTextFile } from '../shareFile';
 import { useThemePreference, useThemedStyles, type Palette } from '../theme';
@@ -37,8 +38,10 @@ export function StudioScreen() {
   const [ready, setReady] = useState(false);
   const [section, setSection] = useState<SectionId>('access');
   const [cameraLabel, setCameraLabel] = useState<CameraName>('iso');
+  const [paintId, setPaintId] = useState<PaintId>(DEFAULT_PAINT);
   const [highlightTire, setHighlightTire] = useState<DoorKey | null>(null);
   const cameraRequest = useRef<{ name: CameraName; token: number }>({ name: 'iso', token: 0 });
+  const paintRequest = useRef<{ id: PaintId; token: number }>({ id: DEFAULT_PAINT, token: 0 });
   const handlersRef = useRef({
     onDoor: (_door: DoorKey) => {},
     onTrunk: () => {},
@@ -78,10 +81,23 @@ export function StudioScreen() {
   }, [highlightTire]);
 
   const stageStyle = isTablet ? styles.stageTablet : isLandscape ? styles.stageLandscape : styles.stagePhone;
+  const showModel = () => {
+    if (!webglOk) {
+      setLoading('Preparing the model');
+      setReady(false);
+      setWebglOk(true);
+    }
+    setMode('3d');
+  };
   const chooseCamera = (name: CameraName) => {
     cameraRequest.current = { name, token: cameraRequest.current.token + 1 };
     setCameraLabel(name);
-    if (webglOk) setMode('3d');
+    showModel();
+  };
+  const choosePaint = (id: PaintId) => {
+    setPaintId(id);
+    paintRequest.current = { id, token: paintRequest.current.token + 1 };
+    showModel();
   };
 
   return (
@@ -110,12 +126,20 @@ export function StudioScreen() {
         <View style={[styles.stage, stageStyle]}>
           <View style={styles.viewport}>
             {webglOk ? (
-              <VehicleStage simRef={simRef} cameraRequest={cameraRequest} phone={phone} active={mode === '3d'} handlersRef={handlersRef} />
+              <VehicleStage
+                simRef={simRef}
+                cameraRequest={cameraRequest}
+                paintRequest={paintRequest}
+                phone={phone}
+                active={mode === '3d'}
+                handlersRef={handlersRef}
+              />
             ) : null}
             {mode === '2d' || !webglOk ? (
               <View style={styles.topLayer}>
                 <TopView
                   snap={snap}
+                  paintId={paintId}
                   onDoor={(door) => handlersRef.current.onDoor(door)}
                   onTrunk={() => handlersRef.current.onTrunk()}
                   onTire={(tire) => handlersRef.current.onTire(tire)}
@@ -127,7 +151,7 @@ export function StudioScreen() {
                 <Text style={styles.loadingText}>{loading}</Text>
               </View>
             ) : null}
-            <View style={styles.layerOverlay}>
+            <View style={styles.layerOverlay} pointerEvents="box-none">
               <LayerChip label="Radar" selected={snap.vehicle.overlays.sensors} onPress={() => toggleOverlay('sensors', !snap.vehicle.overlays.sensors)} />
               <LayerChip label="Path" selected={snap.vehicle.overlays.trajectory} onPress={() => toggleOverlay('trajectory', !snap.vehicle.overlays.trajectory)} />
               <LayerChip label="Labels" selected={snap.vehicle.overlays.labels} onPress={() => toggleOverlay('labels', !snap.vehicle.overlays.labels)} />
@@ -142,17 +166,7 @@ export function StudioScreen() {
 
           <View style={styles.toolbar}>
             <View style={styles.segment}>
-              <Pressable
-                style={[styles.segmentItem, mode === '3d' && styles.segmentOn]}
-                onPress={() => {
-                  if (!webglOk) {
-                    setLoading('Preparing the model');
-                    setReady(false);
-                    setWebglOk(true);
-                  }
-                  setMode('3d');
-                }}
-              >
+              <Pressable style={[styles.segmentItem, mode === '3d' && styles.segmentOn]} onPress={showModel}>
                 <Text style={[styles.segmentText, mode === '3d' && styles.segmentTextOn]}>3D</Text>
               </Pressable>
               <Pressable style={[styles.segmentItem, mode === '2d' && styles.segmentOn]} onPress={() => setMode('2d')}>
@@ -160,7 +174,7 @@ export function StudioScreen() {
               </Pressable>
             </View>
             {mode === '3d' && webglOk ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cameraBar}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cameraScroll} contentContainerStyle={styles.cameraBar}>
                 {CAMERAS.map((camera) => (
                   <Pressable key={camera.id} hitSlop={6} style={styles.cameraBtn} onPress={() => chooseCamera(camera.id)}>
                     <Text style={[styles.cameraText, cameraLabel === camera.id && styles.cameraTextOn]}>{camera.label}</Text>
@@ -173,6 +187,29 @@ export function StudioScreen() {
             ) : (
               <Text style={styles.hint}>Tap a door or a tire</Text>
             )}
+          </View>
+          <View style={styles.paintBar}>
+            <Text style={styles.paintName} numberOfLines={1}>
+              {PAINTS.find((paint) => paint.id === paintId)?.label}
+            </Text>
+            <View style={styles.swatchRow}>
+              {PAINTS.map((paint) => {
+                const selected = paintId === paint.id;
+                return (
+                  <Pressable
+                    key={paint.id}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${paint.label} paint`}
+                    accessibilityState={{ selected }}
+                    style={styles.paintBtn}
+                    onPress={() => choosePaint(paint.id)}
+                  >
+                    <View style={[styles.swatch, { backgroundColor: paint.swatch }, selected && styles.swatchOn]} />
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 
@@ -307,7 +344,8 @@ function createStyles(colors: Palette) {
   instrumentValue: { marginTop: 2, fontSize: 17, fontWeight: '600', color: colors.ink, letterSpacing: -0.3 },
   instrumentWarn: { color: colors.warn },
   instrumentUnit: { fontSize: 11, fontWeight: '600', color: colors.muted },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  toolbar: { flexGrow: 0, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  cameraScroll: { flex: 1 },
   segment: { flexDirection: 'row', backgroundColor: colors.fill, borderRadius: 12, padding: 3 },
   segmentItem: { minWidth: 52, minHeight: 36, paddingHorizontal: 12, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   segmentOn: { backgroundColor: colors.raised },
@@ -318,6 +356,21 @@ function createStyles(colors: Palette) {
   cameraText: { fontSize: 14, fontWeight: '500', color: colors.muted },
   cameraTextOn: { color: colors.blue, fontWeight: '600' },
   hint: { flex: 1, textAlign: 'right', color: colors.muted, fontSize: 13 },
+  paintBar: {
+    flexGrow: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  paintName: { flex: 1, marginRight: 12, fontSize: 14, fontWeight: '600', color: colors.ink },
+  swatchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  paintBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  swatch: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: colors.line },
+  swatchOn: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.blue },
   layerChip: { minHeight: 32, paddingHorizontal: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.overlayChip },
   layerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.dot },
   layerDotOn: { backgroundColor: colors.blue },

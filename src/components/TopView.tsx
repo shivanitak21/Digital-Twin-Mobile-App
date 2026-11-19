@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
 import { criticalPressure, lowPressure } from '../sim/simulator';
+import { paintById, shade, type PaintId } from '../three/paints';
 import { useTheme } from '../theme';
 
 const DOOR_ORIGIN: Record<DoorKey, { x: number; y: number; open: number }> = {
@@ -13,16 +14,24 @@ const DOOR_ORIGIN: Record<DoorKey, { x: number; y: number; open: number }> = {
 
 export function TopView({
   snap,
+  paintId,
   onDoor,
   onTrunk,
   onTire,
 }: {
   snap: StudioSnapshot;
+  paintId: PaintId;
   onDoor: (door: DoorKey) => void;
   onTrunk: () => void;
   onTire: (tire: DoorKey) => void;
 }) {
   const colors = useTheme();
+  const paint = paintById(paintId);
+  const highlight = shade(paint.swatch, 0.45);
+  const mid = shade(paint.swatch, 0.12);
+  const shadeTone = shade(paint.swatch, -0.28);
+  const stroke = shade(paint.swatch, -0.45);
+  const doorFill = shade(paint.swatch, 0.22);
   const { vehicle, lights, blink } = snap;
   const steering = vehicle.motion.steering;
   const showFan = vehicle.overlays.sensors && vehicle.adas.perception;
@@ -40,9 +49,9 @@ export function TopView({
       <Svg viewBox="0 0 360 650" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
         <Defs>
           <LinearGradient id="bodyPaint" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#e6e9ee" />
-            <Stop offset="0.5" stopColor="#f8f9fb" />
-            <Stop offset="1" stopColor="#bfc6d1" />
+            <Stop offset="0" stopColor={highlight} />
+            <Stop offset="0.5" stopColor={mid} />
+            <Stop offset="1" stopColor={shadeTone} />
           </LinearGradient>
           <LinearGradient id="windscreen" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor="#3e4c60" />
@@ -77,7 +86,7 @@ export function TopView({
         <Path
           d="M115 64C138 48 222 48 245 64Q276 88 279 150L284 487Q281 543 262 576C244 604 116 604 98 576Q79 543 76 487L81 150Q84 88 115 64Z"
           fill="url(#bodyPaint)"
-          stroke="#8895a8"
+          stroke={stroke}
           strokeWidth={2.4}
         />
         <Path d="M84 187Q180 165 276 187M81 477Q180 492 279 477" fill="none" stroke="#a8b2c0" strokeWidth={2} />
@@ -86,10 +95,10 @@ export function TopView({
         <Path d="M107 429Q180 447 253 429L245 385Q180 396 115 385Z" fill="#718193" stroke="#667789" strokeWidth={1.5} />
         <Path d="M113 314H247M115 385H245" fill="none" stroke="#96a5b5" strokeWidth={2} />
         <Path d="M102 111Q180 89 258 111M102 551Q180 573 258 551" fill="none" stroke="#9aa8b8" strokeWidth={2} />
-        <Door d="M83 212L110 218L106 320L77 320Z" id="fl" open={vehicle.doors.fl} onPress={onDoor} />
-        <Door d="M277 212L250 218L254 320L283 320Z" id="fr" open={vehicle.doors.fr} onPress={onDoor} />
-        <Door d="M77 330L106 330L104 429L81 448Z" id="rl" open={vehicle.doors.rl} onPress={onDoor} />
-        <Door d="M283 330L254 330L256 429L279 448Z" id="rr" open={vehicle.doors.rr} onPress={onDoor} />
+        <Door d="M83 212L110 218L106 320L77 320Z" id="fl" open={vehicle.doors.fl} fill={doorFill} onPress={onDoor} />
+        <Door d="M277 212L250 218L254 320L283 320Z" id="fr" open={vehicle.doors.fr} fill={doorFill} onPress={onDoor} />
+        <Door d="M77 330L106 330L104 429L81 448Z" id="rl" open={vehicle.doors.rl} fill={doorFill} onPress={onDoor} />
+        <Door d="M283 330L254 330L256 429L279 448Z" id="rr" open={vehicle.doors.rr} fill={doorFill} onPress={onDoor} />
         <G onPress={onTrunk}>
           <Path
             d="M103 548Q180 569 257 548L259 582Q180 610 101 582Z"
@@ -125,11 +134,11 @@ export function TopView({
   );
 }
 
-function Door({ d, id, open, onPress }: { d: string; id: DoorKey; open: boolean; onPress: (id: DoorKey) => void }) {
+function Door({ d, id, open, fill, onPress }: { d: string; id: DoorKey; open: boolean; fill: string; onPress: (id: DoorKey) => void }) {
   const origin = DOOR_ORIGIN[id];
   return (
     <G onPress={() => onPress(id)} transform={open ? `rotate(${origin.open} ${origin.x} ${origin.y})` : undefined}>
-      <Path d={d} fill={open ? '#bbd5fa' : '#d2dae4'} stroke="#6e8195" strokeWidth={2} />
+      <Path d={d} fill={open ? '#bbd5fa' : fill} stroke="#6e8195" strokeWidth={2} />
     </G>
   );
 }

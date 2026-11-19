@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { installNativeImageShim, withEmbeddedTextures } from './nativeImage';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { DoorKey, StudioSnapshot } from '../sim/types';
+import { paintById, type PaintId } from './paints';
 import type { PointerSurface } from './pointerSurface';
 
 const DOOR_NODES: Record<DoorKey | 'trunk', string> = {
@@ -179,6 +180,8 @@ function setLabel(label: THREE.Sprite, text: string) {
 export interface ViewerHandle {
   frame: (dt: number, snap: StudioSnapshot) => void;
   setCamera: (name: CameraName) => void;
+  setPaint: (id: PaintId) => void;
+  zoomBy: (factor: number) => void;
   setAppearance: (mode: 'light' | 'dark') => void;
   resize: (width: number, height: number) => void;
   tap: (x: number, y: number) => void;
@@ -324,11 +327,20 @@ export async function createVehicleViewer(options: {
   });
   const rearLenses: THREE.MeshStandardMaterial[] = [];
   const frontLenses: THREE.MeshStandardMaterial[] = [];
+  const bodyPaint: THREE.MeshStandardMaterial[] = [];
+  const seenPaint = new Set<THREE.Material>();
   vehicle.traverse((object) => {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
     mesh.castShadow = false;
-    const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const material of materials) {
+      if (!material || seenPaint.has(material)) continue;
+      if ((material.name || '').toLowerCase() !== 'magnesium') continue;
+      seenPaint.add(material);
+      bodyPaint.push(material as THREE.MeshStandardMaterial);
+    }
+    const source = materials[0];
     if (!source) return;
     let path = '';
     for (let parent: THREE.Object3D | null = mesh; parent && path.length < 450; parent = parent.parent) path += ` ${parent.name || ''}`;
@@ -672,6 +684,25 @@ export async function createVehicleViewer(options: {
       cameraGoal = new THREE.Vector3(preset[0] + center.x, preset[1] + center.y - 0.82, preset[2] + center.z);
       controls.target.set(center.x, center.y - 0.04, center.z);
       controls.update();
+    },
+    setPaint(id) {
+      const paint = paintById(id);
+      for (const material of bodyPaint) {
+        if ('linear' in paint) material.color.setRGB(paint.linear[0], paint.linear[1], paint.linear[2], THREE.LinearSRGBColorSpace);
+        else material.color.setHex(paint.hex);
+        material.metalness = paint.metalness;
+        material.roughness = paint.roughness;
+        material.needsUpdate = true;
+      }
+    },
+    zoomBy(factor) {
+      cameraGoal = null;
+      const offset = camera.position.clone().sub(controls.target);
+      const distance = offset.length();
+      if (distance < 1e-4) return;
+      const next = Math.min(controls.maxDistance, Math.max(controls.minDistance, distance * factor));
+      offset.multiplyScalar(next / distance);
+      camera.position.copy(controls.target).add(offset);
     },
     resize(viewWidth, viewHeight) {
       surface.setSize(viewWidth, viewHeight);
